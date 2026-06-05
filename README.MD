@@ -1,0 +1,2 @@
+# ast-querying
+A strongly typed query engine for .NET and Entity Framework Core that converts structured API queries into LINQ Expression Trees. Supports configurable filtering, sorting, computed values, metadata generation, startup validation, and high-performance execution without dynamic LINQ or runtime reflection.
