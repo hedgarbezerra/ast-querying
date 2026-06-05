@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latestmajor</LangVersion>
+        <RootNamespace>AstQuerying.Queries</RootNamespace>
+        <AssemblyName>AstQuerying.Queries</AssemblyName>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <PackageId>AstQuerying.Queries</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>AstQuerying</Authors>
+        <Description>Strongly typed query engine for .NET and EF Core: structured API queries to LINQ expression trees with filtering, sorting, metadata, and validation.</Description>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryType>git</RepositoryType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\..\README.MD" Pack="true" PackagePath="\README.md" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5"/>
+    </ItemGroup>
+
+</Project>
