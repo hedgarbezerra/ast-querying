@@ -1,26 +1,43 @@
+using Microsoft.AspNetCore.Http;
+
 namespace AstQuerying.Queries.Common.Exceptions;
 
 /// <summary>
 /// Thrown when entity query rules are misconfigured at startup (duplicate paths, invalid defaults, and similar).
 /// </summary>
-public sealed class QueryConfigurationException : Exception
+public sealed class QueryConfigurationException : QueryException
 {
     /// <summary>
-    /// Initializes a new instance with a configuration error message.
+    /// Stable <see cref="QueryException.Reason"/> value for all instances of this exception type.
     /// </summary>
-    /// <param name="message">The error message.</param>
-    public QueryConfigurationException(string message)
-        : base(message)
+    public const string ReasonCode = "QueryConfiguration";
+
+    /// <summary>
+    /// Gets structured context for this configuration failure, when supplied at construction.
+    /// </summary>
+    public QueryConfigurationDiagnostics? Diagnostics { get; }
+
+    /// <summary>
+    /// Initializes a new instance with HTTP 500 (Internal Server Error) when mapped to a response.
+    /// </summary>
+    /// <param name="message">The configuration error description.</param>
+    /// <param name="diagnostics">Optional structured context.</param>
+    public QueryConfigurationException(string message, QueryConfigurationDiagnostics? diagnostics = null)
+        : base(StatusCodes.Status500InternalServerError, ReasonCode, message)
     {
+        Diagnostics = diagnostics;
     }
 
     /// <summary>
     /// Initializes a new instance with an inner exception.
     /// </summary>
-    /// <param name="message">The error message.</param>
+    /// <param name="message">The configuration error description.</param>
     /// <param name="innerException">The underlying error.</param>
-    public QueryConfigurationException(string message, Exception? innerException)
-        : base(message, innerException)
+    /// <param name="diagnostics">Optional structured context.</param>
+    public QueryConfigurationException(string message, Exception? innerException,
+        QueryConfigurationDiagnostics? diagnostics = null)
+        : base(StatusCodes.Status500InternalServerError, ReasonCode, message, innerException)
     {
+        Diagnostics = diagnostics;
     }
 }

@@ -26,7 +26,12 @@ internal static class MemberPathAnalyzer
                     cur = null;
                     break;
                 default:
-                    throw new QueryConfigurationException($"Unsupported expression in member path: {cur.NodeType}.");
+                    throw new QueryConfigurationException($"Unsupported expression in member path: {cur.NodeType}.",
+                        new QueryConfigurationDiagnostics
+                        {
+                            Kind = QueryConfigurationFailureKind.MemberPathUnsupportedExpression,
+                            ExpressionNodeType = cur.NodeType.ToString()
+                        });
             }
         }
 
@@ -37,11 +42,17 @@ internal static class MemberPathAnalyzer
         Expression<Func<TEntity, TMember>> expr)
     {
         if (expr.Body is not MemberExpression)
-            throw new QueryConfigurationException("Expression must be a simple member access.");
+            throw new QueryConfigurationException("Expression must be a simple member access.",
+                new QueryConfigurationDiagnostics { Kind = QueryConfigurationFailureKind.MemberPathNotSimpleAccess });
 
         var chain = UnwrapMemberChain(expr.Body);
         if (chain.Count != 1)
-            throw new QueryConfigurationException("Use RuleFor with UseConfiguration for nested complex member paths.");
+            throw new QueryConfigurationException("Use RuleFor with UseConfiguration for nested complex member paths.",
+                new QueryConfigurationDiagnostics
+                {
+                    Kind = QueryConfigurationFailureKind.MemberPathNestedComplexNotSupported,
+                    ExpressionNodeType = expr.Body.NodeType.ToString()
+                });
 
         return chain[0];
     }
@@ -71,7 +82,12 @@ internal static class MemberPathAnalyzer
             .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
         if (enumerable is null)
-            throw new QueryConfigurationException($"Type {t.Name} is not IEnumerable<>.");
+            throw new QueryConfigurationException($"Type {t.Name} is not IEnumerable<>.",
+                new QueryConfigurationDiagnostics
+                {
+                    Kind = QueryConfigurationFailureKind.TypeNotGenericEnumerable,
+                    ActualTypeName = t.FullName ?? t.Name
+                });
 
         return enumerable.GetGenericArguments()[0];
     }

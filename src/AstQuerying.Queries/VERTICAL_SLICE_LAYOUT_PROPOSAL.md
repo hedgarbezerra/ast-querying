@@ -21,16 +21,16 @@ Pastas sob `utilities/ShiftsManager.API/ShiftsManager.Query/` (excluindo `bin/`,
 | `Ast/` | `QueryNode.cs`, `ValueNode.cs` |
 | `Configuration/` | `FieldRuleChain.cs`, `QueryConfiguration.cs`, `RegistrationDraft.cs` |
 | `DependencyInjection/` | `QueryEngineOptions.cs`, `QueryServiceCollectionExtensions.cs` |
-| `ExceptionHandling/` | `QueryExceptionHandler.cs` |
+| `Handlers/` | `QueryExceptionHandler.cs` |
 | `Exceptions/` | `QueryConfigurationException.cs`, `QueryConversionException.cs`, `QueryException.cs`, `QueryValidationException.cs` |
 | `Filters/` | `FilterClauseDto.cs`, `FilterExpressionBuilder.cs`, `IFilterExpressionBuilder.cs`, `IFilterOperator.cs`, `IValueConverter.cs`, `StandardFilterOperators.cs`, `ValueConverter.cs` |
-| `Functions/` | `IFunctionProvider.cs`, `SystemFunctions.cs` |
+| `Functions/` | `IFunction.cs`, `Implementations/Temporal/`, `Implementations/Integer/`, `Implementations/Monetary/` |
 | `Internal/` | `ExpressionNormalizer.cs`, `MemberPathAnalyzer.cs`, `QueryAssemblyScanner.cs`, `QueryRegistryBuilder.cs` |
 | `Metadata/` | `EntityMetadata.cs`, `IQueryMetadataProvider.cs`, `PathSegment.cs`, `PropertyMetadata.cs`, `QueryMetadataProvider.cs`, `RegistryQueryMetadataProvider.cs` |
 | `Parsing/` | `QueryFilterParser.cs` |
 | `Registry/` | `IQueryRegistry.cs` |
 | `Resolvers/` | `IPropertyResolver.cs`, `PropertyResolver.cs` |
-| `Sorting/` | `ISortBuilder.cs`, `PaginationRequestDto.cs`, `PaginationResolver.cs`, `SortBuilder.cs`, `SortFieldDto.cs` |
+| `Sorting/` | `IPaginationResolver.cs`, `ISortingKeyBuilder.cs`, `ISortingService.cs`, `PaginationDto.cs`, `PaginationResolver.cs`, `SortingKeyBuilder.cs`, `SortingService.cs`, `SortFieldDto.cs` |
 | `Validation/` | `IQueryValidator.cs`, `QueryValidator.cs` |
 
 **Total:** 41 ficheiros `.cs` de origem (sem contar artefactos de build).
@@ -106,7 +106,7 @@ AstQuerying.Queries/
 | `Exceptions/QueryConversionException.cs` | `Contracts/Exceptions/QueryConversionException.cs` |
 | `Exceptions/QueryException.cs` | `Contracts/Exceptions/QueryException.cs` |
 | `Exceptions/QueryValidationException.cs` | `Contracts/Exceptions/QueryValidationException.cs` |
-| `Filters/FilterClauseDto.cs` | `Contracts/Filters/FilterClauseDto.cs` |
+| `Filters/FilterClauseDto.cs` | `Contracts/Filters/Dtos/FilterClauseDto.cs` |
 | `Filters/FilterExpressionBuilder.cs` | `Features/Filters/FilterExpressionBuilder.cs` |
 | `Filters/IFilterExpressionBuilder.cs` | `Abstractions/Filters/IFilterExpressionBuilder.cs` |
 | `Filters/IFilterOperator.cs` | `Abstractions/Filters/IFilterOperator.cs` |
@@ -114,7 +114,7 @@ AstQuerying.Queries/
 | `Filters/StandardFilterOperators.cs` | `Features/Filters/StandardFilterOperators.cs` |
 | `Filters/ValueConverter.cs` | `Features/Filters/ValueConverter.cs` |
 | `Functions/IFunctionProvider.cs` | `Abstractions/Functions/IFunctionProvider.cs` |
-| `Functions/SystemFunctions.cs` | `Features/Functions/SystemFunctions.cs` |
+| `Functions/Implementations/Temporal/*.cs` | `Features/Functions/Temporal/` |
 | `Internal/ExpressionNormalizer.cs` | `Features/Internal/ExpressionNormalizer.cs` |
 | `Internal/MemberPathAnalyzer.cs` | `Features/Internal/MemberPathAnalyzer.cs` |
 | `Internal/QueryAssemblyScanner.cs` | `Configuration/Discovery/QueryAssemblyScanner.cs` |
@@ -129,10 +129,11 @@ AstQuerying.Queries/
 | `Registry/IQueryRegistry.cs` | `Abstractions/Registry/IQueryRegistry.cs` |
 | `Resolvers/IPropertyResolver.cs` | `Abstractions/Resolving/IPropertyResolver.cs` |
 | `Resolvers/PropertyResolver.cs` | `Features/Resolving/PropertyResolver.cs` |
-| `Sorting/ISortBuilder.cs` | `Abstractions/Sorting/ISortBuilder.cs` |
-| `Sorting/PaginationRequestDto.cs` | `Contracts/Sorting/PaginationRequestDto.cs` |
+| `Sorting/ISortingService.cs` | `Abstractions/Sorting/ISortingService.cs` |
+| `Sorting/SortingService.cs` | `Features/Sorting/SortingService.cs` |
+| `Sorting/PaginationDto.cs` | `Contracts/Sorting/PaginationDto.cs` |
 | `Sorting/PaginationResolver.cs` | `Features/Sorting/PaginationResolver.cs` |
-| `Sorting/SortBuilder.cs` | `Features/Sorting/SortBuilder.cs` |
+| `Sorting/SortingKeyBuilder.cs` | `Features/Sorting/SortingKeyBuilder.cs` |
 | `Sorting/SortFieldDto.cs` | `Contracts/Sorting/SortFieldDto.cs` |
 | `Validation/IQueryValidator.cs` | `Abstractions/Validation/IQueryValidator.cs` |
 | `Validation/QueryValidator.cs` | `Features/Validation/QueryValidator.cs` |

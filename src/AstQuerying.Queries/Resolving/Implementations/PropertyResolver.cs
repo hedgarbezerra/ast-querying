@@ -7,15 +7,14 @@ using AstQuerying.Queries.Resolving.Contracts;
 namespace AstQuerying.Queries.Resolving.Implementations;
 
 /// <summary>
-/// Resolves configured paths or aliases to member-access expressions for <typeparamref name="TEntity"/>.
+/// Resolves configured paths or aliases to member-access expressions for a registered entity type.
 /// </summary>
-/// <typeparam name="TEntity">The entity root type.</typeparam>
-public sealed class PropertyResolver<TEntity> : IPropertyResolver<TEntity> where TEntity : class
+public sealed class PropertyResolver : IPropertyResolver
 {
     private readonly IQueryRegistry _registry;
 
     /// <summary>
-    /// Initializes a new instance of <see cref="PropertyResolver{TEntity}"/>.
+    /// Initializes a new instance of <see cref="PropertyResolver"/>.
     /// </summary>
     /// <param name="registry">The query registry.</param>
     public PropertyResolver(IQueryRegistry registry)
@@ -24,7 +23,7 @@ public sealed class PropertyResolver<TEntity> : IPropertyResolver<TEntity> where
     }
 
     /// <inheritdoc />
-    public Expression Resolve(string pathOrAlias)
+    public Expression Resolve<TEntity>(string pathOrAlias) where TEntity : class
     {
         var meta = _registry.GetEntity(typeof(TEntity)) ??
                    throw new QueryValidationException($"No query metadata for {typeof(TEntity).Name}.");

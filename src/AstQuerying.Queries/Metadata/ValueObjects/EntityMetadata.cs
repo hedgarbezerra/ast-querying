@@ -1,5 +1,5 @@
-using AstQuerying.Queries.Filters.ValueObjects;
-using AstQuerying.Queries.Sorting.ValueObjects;
+using AstQuerying.Queries.Filters.Dtos;
+using AstQuerying.Queries.Sorting.Dtos;
 
 namespace AstQuerying.Queries.Metadata.ValueObjects;
 
@@ -14,7 +14,7 @@ public sealed class EntityMetadata
     /// <param name="clrType">The entity CLR type.</param>
     /// <param name="properties">Configured property rules.</param>
     /// <param name="defaultSort">Optional default sort applied when the client sends none.</param>
-    /// <param name="defaultFilter">Optional default filter merged or applied by the host application.</param>
+    /// <param name="defaultFilter">Optional default filter used when the client omits a filter in the query pipeline.</param>
     public EntityMetadata(
         Type clrType,
         IReadOnlyList<PropertyMetadata> properties,

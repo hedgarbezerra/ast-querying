@@ -13,27 +13,17 @@ public sealed class QueryEngineOptions
     public IList<Assembly> AssembliesToScan { get; } = new List<Assembly>();
 
     /// <summary>
-    /// Gets or sets the maximum allowed skip offset (for both explicit skip and page-derived skip).
+    /// Gets or sets the maximum allowed zero-based skip derived from <c>(page - 1) * size</c>.
     /// </summary>
     public int MaxSkip { get; set; } = 50_000;
 
     /// <summary>
-    /// Gets or sets the maximum allowed take size when using skip/take pagination.
-    /// </summary>
-    public int MaxTake { get; set; } = 500;
-
-    /// <summary>
-    /// Gets or sets the maximum allowed page size when using page/pageSize pagination.
+    /// Gets or sets the maximum allowed page size (maps to LINQ <c>Take</c>).
     /// </summary>
     public int MaxPageSize { get; set; } = 500;
 
     /// <summary>
-    /// Gets or sets the default take when the client omits take.
-    /// </summary>
-    public int DefaultTake { get; set; } = 50;
-
-    /// <summary>
-    /// Gets or sets the default page size when the client omits pageSize.
+    /// Gets or sets the default page size when the client omits <c>size</c>.
     /// </summary>
     public int DefaultPageSize { get; set; } = 50;
 }

@@ -22,7 +22,7 @@ public interface IQueryRegistry
     /// <summary>
     /// Gets dynamic value providers keyed by function name (case-insensitive).
     /// </summary>
-    IReadOnlyDictionary<string, IFunctionProvider> Functions { get; }
+    IReadOnlyDictionary<string, IFunction> Functions { get; }
 
     /// <summary>
     /// Returns metadata for <paramref name="entityClrType"/>, or <see langword="null"/> when the entity is not registered.

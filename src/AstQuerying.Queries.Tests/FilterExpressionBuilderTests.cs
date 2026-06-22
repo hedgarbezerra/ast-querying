@@ -1,8 +1,8 @@
 using System.Text.Json;
 using AstQuerying.Queries.Ast.ValueObjects;
 using AstQuerying.Queries.Filters.Contracts;
-using AstQuerying.Queries.Filters.ValueObjects;
-using AstQuerying.Queries.Parsing.Implementations;
+using AstQuerying.Queries.Filters.Dtos;
+using AstQuerying.Queries.Ast.Parsing;
 using AstQuerying.Queries.Tests.Support;
 using AstQuerying.Queries.Validation.Contracts;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +16,7 @@ public sealed class FilterExpressionBuilderTests
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
         var validator = sp.GetRequiredService<IQueryValidator>();
-        var builder = sp.GetRequiredService<IFilterExpressionBuilder<Person>>();
+        var builder = sp.GetRequiredService<IFilterExpressionBuilder>();
         var dto = new FilterClauseDto
         {
             Field = "Name",
@@ -26,7 +26,7 @@ public sealed class FilterExpressionBuilderTests
         var node = QueryFilterParser.Parse(dto);
         validator.Validate(typeof(Person), node);
 
-        var predicate = builder.Build(node).Compile();
+        var predicate = builder.Build<Person>(node).Compile();
         var source = new[]
         {
             new Person { Id = 1, Name = "Alice", Age = 20 },
@@ -44,7 +44,7 @@ public sealed class FilterExpressionBuilderTests
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
         var validator = sp.GetRequiredService<IQueryValidator>();
-        var builder = sp.GetRequiredService<IFilterExpressionBuilder<Person>>();
+        var builder = sp.GetRequiredService<IFilterExpressionBuilder>();
         var dto = new FilterClauseDto
         {
             And =
@@ -52,13 +52,13 @@ public sealed class FilterExpressionBuilderTests
                 new FilterClauseDto
                 {
                     Field = "Age",
-                    Op = ">",
+                    Operator = ">",
                     Value = JsonSerializer.SerializeToElement(22)
                 },
                 new FilterClauseDto
                 {
                     Field = "Name",
-                    Op = "=",
+                    Operator = "=",
                     Value = JsonSerializer.SerializeToElement("Carla")
                 }
             ]
@@ -66,7 +66,7 @@ public sealed class FilterExpressionBuilderTests
         var node = QueryFilterParser.Parse(dto);
         validator.Validate(typeof(Person), node);
 
-        var predicate = builder.Build(node).Compile();
+        var predicate = builder.Build<Person>(node).Compile();
         var source = new[]
         {
             new Person { Id = 1, Name = "Alice", Age = 30 },
@@ -76,5 +76,59 @@ public sealed class FilterExpressionBuilderTests
         var result = source.Where(predicate).ToList();
         Assert.Single(result);
         Assert.Equal("Carla", result[0].Name);
+    }
+
+    [Fact]
+    public void BuiltPredicateFiltersByLegalAgeFunctionOnAge()
+    {
+        using var sp = QueryEngineTestFixture.CreateProvider();
+        var validator = sp.GetRequiredService<IQueryValidator>();
+        var builder = sp.GetRequiredService<IFilterExpressionBuilder>();
+        var dto = new FilterClauseDto
+        {
+            Field = "Age",
+            Operator = ">=",
+            Value = JsonSerializer.SerializeToElement(new { function = "LegalAge" })
+        };
+        var node = QueryFilterParser.Parse(dto);
+        validator.Validate(typeof(Person), node);
+
+        var predicate = builder.Build<Person>(node).Compile();
+        var source = new[]
+        {
+            new Person { Id = 1, Name = "Minor", Age = 16 },
+            new Person { Id = 2, Name = "Adult", Age = 30 }
+        }.AsQueryable();
+
+        var result = source.Where(predicate).ToList();
+        Assert.Single(result);
+        Assert.Equal("Adult", result[0].Name);
+    }
+
+    [Fact]
+    public void BuiltPredicateFiltersByMinimumWageFunctionOnSalary()
+    {
+        using var sp = QueryEngineTestFixture.CreateProvider();
+        var validator = sp.GetRequiredService<IQueryValidator>();
+        var builder = sp.GetRequiredService<IFilterExpressionBuilder>();
+        var dto = new FilterClauseDto
+        {
+            Field = "Salary",
+            Operator = ">=",
+            Value = JsonSerializer.SerializeToElement(new { function = "MinimumWage" })
+        };
+        var node = QueryFilterParser.Parse(dto);
+        validator.Validate(typeof(Person), node);
+
+        var predicate = builder.Build<Person>(node).Compile();
+        var source = new[]
+        {
+            new Person { Id = 1, Name = "Low", Salary = 1000m },
+            new Person { Id = 2, Name = "Ok", Salary = 2000m }
+        }.AsQueryable();
+
+        var result = source.Where(predicate).ToList();
+        Assert.Single(result);
+        Assert.Equal("Ok", result[0].Name);
     }
 }

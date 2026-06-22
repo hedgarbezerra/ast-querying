@@ -2,6 +2,7 @@ using AstQuerying.Queries.Filters.Contracts;
 using AstQuerying.Queries.Functions.Contracts;
 using AstQuerying.Queries.Metadata.Contracts;
 using AstQuerying.Queries.Registry.Contracts;
+using AstQuerying.Queries.Registry.Implementations;
 using AstQuerying.Queries.Tests.Support;
 using AstQuerying.Queries.Validation.Contracts;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,7 +28,10 @@ public sealed class AddQueryEngineTests
         foreach (var key in expectedOps)
             Assert.True(registry.Operators.ContainsKey(key), $"Missing operator: {key}");
 
-        var expectedFns = new[] { "Today", "Now", "StartOfMonth", "EndOfMonth", "CurrentYear" };
+        var expectedFns = new[]
+        {
+            "Today", "Now", "StartOfMonth", "EndOfMonth", "CurrentYear", "LegalAge", "MinimumWage"
+        };
         foreach (var key in expectedFns)
             Assert.True(registry.Functions.ContainsKey(key), $"Missing function: {key}");
     }
@@ -37,7 +41,8 @@ public sealed class AddQueryEngineTests
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
         var validator = sp.GetRequiredService<IQueryValidator>();
-        var operators = sp.GetServices<IFilterOperator>().Select(o => o.Name).Distinct().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var operators = sp.GetServices<IFilterOperator>().Select(QueryOperatorsRegistry.GetKey).Distinct()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Assert.NotNull(validator);
         Assert.Contains("=", operators);
@@ -48,10 +53,13 @@ public sealed class AddQueryEngineTests
     public void ResolvesEnumerableFunctionProvidersFromDi()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
-        var names = sp.GetServices<IFunctionProvider>().Select(f => f.Name).Distinct().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var names = sp.GetServices<IFunction>().Select(QueryFunctionsRegistry.GetKey).Distinct()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Assert.Contains("Today", names);
         Assert.Contains("CurrentYear", names);
+        Assert.Contains("LegalAge", names);
+        Assert.Contains("MinimumWage", names);
     }
 
     [Fact]

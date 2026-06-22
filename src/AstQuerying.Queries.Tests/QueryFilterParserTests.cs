@@ -1,8 +1,8 @@
 using System.Text.Json;
 using AstQuerying.Queries.Ast.ValueObjects;
 using AstQuerying.Queries.Common.Exceptions;
-using AstQuerying.Queries.Filters.ValueObjects;
-using AstQuerying.Queries.Parsing.Implementations;
+using AstQuerying.Queries.Filters.Dtos;
+using AstQuerying.Queries.Ast.Parsing;
 
 namespace AstQuerying.Queries.Tests;
 
@@ -18,7 +18,7 @@ public sealed class QueryFilterParserTests
                 new FilterClauseDto
                 {
                     Field = "Age",
-                    Op = "=",
+                    Operator = "=",
                     Value = JsonSerializer.SerializeToElement(21)
                 },
                 new FilterClauseDto
@@ -33,11 +33,11 @@ public sealed class QueryFilterParserTests
         var node = QueryFilterParser.Parse(root);
         var and = Assert.IsType<AndNode>(node);
         Assert.Equal(2, and.Children.Count);
-        var c0 = Assert.IsType<ComparisonNode>(and.Children[0]);
+        var c0 = Assert.IsType<SingleValueComparisonNode>(and.Children[0]);
         Assert.Equal("Age", c0.FieldPath);
         Assert.Equal("=", c0.OperatorName);
         Assert.IsType<ConstantValueNode>(c0.Value);
-        var c1 = Assert.IsType<ComparisonNode>(and.Children[1]);
+        var c1 = Assert.IsType<SingleValueComparisonNode>(and.Children[1]);
         Assert.Equal("Name", c1.FieldPath);
         Assert.Equal("contains", c1.OperatorName);
     }
@@ -50,14 +50,14 @@ public sealed class QueryFilterParserTests
             Not = new FilterClauseDto
             {
                 Field = "Id",
-                Op = "=",
+                Operator = "=",
                 Value = JsonSerializer.SerializeToElement(1)
             }
         };
 
         var node = QueryFilterParser.Parse(root);
         var not = Assert.IsType<NotNode>(node);
-        var inner = Assert.IsType<ComparisonNode>(not.Child);
+        var inner = Assert.IsType<SingleValueComparisonNode>(not.Child);
         Assert.Equal("Id", inner.FieldPath);
     }
 
@@ -76,9 +76,8 @@ public sealed class QueryFilterParserTests
         };
 
         var node = QueryFilterParser.Parse(root);
-        var cmp = Assert.IsType<ComparisonNode>(node);
+        var cmp = Assert.IsType<MultiValueComparisonNode>(node);
         Assert.Equal("in", cmp.OperatorName);
-        Assert.NotNull(cmp.Values);
         Assert.Equal(2, cmp.Values.Count);
     }
 
@@ -97,5 +96,19 @@ public sealed class QueryFilterParserTests
         var root = new FilterClauseDto();
 
         Assert.Throws<QueryValidationException>(() => QueryFilterParser.Parse(root));
+    }
+
+    [Fact]
+    public void UnknownOperatorThrowsQueryValidationException()
+    {
+        var root = new FilterClauseDto
+        {
+            Field = "Name",
+            Operator = "bogusOp",
+            Value = JsonSerializer.SerializeToElement("x")
+        };
+
+        var ex = Assert.Throws<QueryValidationException>(() => QueryFilterParser.Parse(root));
+        Assert.Contains("Unknown filter operator", ex.Message, StringComparison.Ordinal);
     }
 }

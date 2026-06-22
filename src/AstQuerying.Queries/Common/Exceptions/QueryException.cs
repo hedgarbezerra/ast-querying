@@ -9,9 +9,10 @@ public class QueryException : Exception
     /// Initializes a new instance of the <see cref="QueryException"/> class.
     /// </summary>
     /// <param name="statusCode">The HTTP status code to return.</param>
-    /// <param name="reason">A short, user-safe explanation.</param>
-    public QueryException(int statusCode, string reason)
-        : base(reason)
+    /// <param name="reason">Stable machine-oriented category for this failure type (constant per derived exception type).</param>
+    /// <param name="message">Human-readable description of this specific failure.</param>
+    public QueryException(int statusCode, string reason, string message)
+        : base(message)
     {
         StatusCode = statusCode;
         Reason = reason;
@@ -21,10 +22,11 @@ public class QueryException : Exception
     /// Initializes a new instance with an inner exception for diagnostics.
     /// </summary>
     /// <param name="statusCode">The HTTP status code to return.</param>
-    /// <param name="reason">A short, user-safe explanation.</param>
+    /// <param name="reason">Stable machine-oriented category for this failure type.</param>
+    /// <param name="message">Human-readable description of this specific failure.</param>
     /// <param name="innerException">The underlying error.</param>
-    public QueryException(int statusCode, string reason, Exception? innerException)
-        : base(reason, innerException)
+    public QueryException(int statusCode, string reason, string message, Exception? innerException)
+        : base(message, innerException)
     {
         StatusCode = statusCode;
         Reason = reason;
@@ -36,7 +38,7 @@ public class QueryException : Exception
     public int StatusCode { get; }
 
     /// <summary>
-    /// Gets the human-readable reason (duplicated from <see cref="Exception.Message"/> for clarity in APIs).
+    /// Gets the stable failure category for this exception type (for example a constant exposed on <see cref="QueryValidationException"/>).
     /// </summary>
     public string Reason { get; }
 }

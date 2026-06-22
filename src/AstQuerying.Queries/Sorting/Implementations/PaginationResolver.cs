@@ -1,58 +1,45 @@
 using AstQuerying.Queries.Common.Exceptions;
 using AstQuerying.Queries.Configuration.DependencyInjection;
-using AstQuerying.Queries.Sorting.ValueObjects;
+using AstQuerying.Queries.Sorting.Contracts;
+using AstQuerying.Queries.Sorting.Dtos;
 
 namespace AstQuerying.Queries.Sorting.Implementations;
 
 /// <summary>
-/// Normalizes <see cref="PaginationRequestDto"/> into concrete skip/take values using <see cref="QueryEngineOptions"/> limits.
+/// Normalizes <see cref="PaginationDto"/> into concrete skip/take values using injected <see cref="QueryEngineOptions"/> limits.
 /// </summary>
-public static class PaginationResolver
+public sealed class PaginationResolver : IPaginationResolver
 {
+    private readonly QueryEngineOptions _options;
+
     /// <summary>
-    /// Resolves pagination from either page-based or skip/take input, enforcing configured maximums.
+    /// Initializes a new instance of <see cref="PaginationResolver"/>.
     /// </summary>
-    /// <param name="dto">The incoming pagination DTO.</param>
     /// <param name="options">Engine limits and defaults.</param>
-    /// <returns>The resolved skip and take tuple.</returns>
-    /// <exception cref="QueryValidationException">When the request is invalid or exceeds limits.</exception>
-    public static (int Skip, int Take) Resolve(PaginationRequestDto dto, QueryEngineOptions options)
+    public PaginationResolver(QueryEngineOptions options)
     {
-        var hasPaging = dto.Page is not null || dto.PageSize is not null;
-        var hasSkipTake = dto.Skip is not null || dto.Take is not null;
+        _options = options;
+    }
 
-        if (hasPaging && hasSkipTake)
-            throw new QueryValidationException("Use either page/pageSize or skip/take, not both.");
+    /// <inheritdoc />
+    public (int Skip, int Take) Resolve(PaginationDto? dto)
+    {
+        var page = dto?.Page ?? 1;
+        var size = dto?.Size ?? _options.DefaultPageSize;
 
-        if (hasPaging)
-        {
-            var page = dto.Page ?? 1;
-            var pageSize = dto.PageSize ?? options.DefaultPageSize;
-            if (page < 1)
-                throw new QueryValidationException("page must be >= 1.");
-            if (pageSize < 1)
-                throw new QueryValidationException("pageSize must be >= 1.");
-            if (pageSize > options.MaxPageSize)
-                throw new QueryValidationException($"pageSize must not exceed {options.MaxPageSize}.");
+        if (page < 1)
+            throw new QueryValidationException("page must be >= 1.");
 
-            var skip = (page - 1) * pageSize;
-            if (skip > options.MaxSkip)
-                throw new QueryValidationException($"skip derived from page must not exceed {options.MaxSkip}.");
+        if (size < 1)
+            throw new QueryValidationException("size must be >= 1.");
 
-            return (skip, pageSize);
-        }
+        if (size > _options.MaxPageSize)
+            throw new QueryValidationException($"size must not exceed {_options.MaxPageSize}.");
 
-        var skip2 = dto.Skip ?? 0;
-        var take2 = dto.Take ?? options.DefaultTake;
-        if (skip2 < 0)
-            throw new QueryValidationException("skip must be >= 0.");
-        if (take2 < 1)
-            throw new QueryValidationException("take must be >= 1.");
-        if (take2 > options.MaxTake)
-            throw new QueryValidationException($"take must not exceed {options.MaxTake}.");
-        if (skip2 > options.MaxSkip)
-            throw new QueryValidationException($"skip must not exceed {options.MaxSkip}.");
+        var skip = (page - 1) * size;
+        if (skip > _options.MaxSkip)
+            throw new QueryValidationException($"skip derived from page must not exceed {_options.MaxSkip}.");
 
-        return (skip2, take2);
+        return (skip, size);
     }
 }

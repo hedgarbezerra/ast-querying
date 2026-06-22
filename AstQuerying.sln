@@ -4,6 +4,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AstQuerying.Queries", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AstQuerying.Queries.Tests", "src\AstQuerying.Queries.Tests\AstQuerying.Queries.Tests.csproj", "{EF885E45-EFDE-4A3D-A951-D70F5F8FCA9C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AstQuerying.Examples", "src\AstQuerying.Examples\AstQuerying.Examples.csproj", "{CEAE594A-59F9-47A5-8F8C-BBCAB5F31F76}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AstQuerying.Benchmarks", "src\AstQuerying.Benchmarks\AstQuerying.Benchmarks.csproj", "{89B62389-0B13-40A0-8BFA-3954F7BF1C29}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +22,13 @@ Global
 		{EF885E45-EFDE-4A3D-A951-D70F5F8FCA9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EF885E45-EFDE-4A3D-A951-D70F5F8FCA9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EF885E45-EFDE-4A3D-A951-D70F5F8FCA9C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CEAE594A-59F9-47A5-8F8C-BBCAB5F31F76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CEAE594A-59F9-47A5-8F8C-BBCAB5F31F76}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CEAE594A-59F9-47A5-8F8C-BBCAB5F31F76}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CEAE594A-59F9-47A5-8F8C-BBCAB5F31F76}.Release|Any CPU.Build.0 = Release|Any CPU
+		{89B62389-0B13-40A0-8BFA-3954F7BF1C29}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{89B62389-0B13-40A0-8BFA-3954F7BF1C29}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{89B62389-0B13-40A0-8BFA-3954F7BF1C29}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{89B62389-0B13-40A0-8BFA-3954F7BF1C29}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

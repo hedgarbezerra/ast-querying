@@ -1,10 +1,10 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using AstQuerying.Queries.Common.Exceptions;
-using AstQuerying.Queries.Filters.ValueObjects;
+using AstQuerying.Queries.Filters.Dtos;
 using AstQuerying.Queries.Metadata.ValueObjects;
 using AstQuerying.Queries.Registry.Implementations;
-using AstQuerying.Queries.Sorting.ValueObjects;
+using AstQuerying.Queries.Sorting.Dtos;
 
 namespace AstQuerying.Queries.Configuration;
 
@@ -40,17 +40,31 @@ public abstract class QueryConfiguration<TEntity> where TEntity : class
     {
         var (name, collectionType) = MemberPathAnalyzer.RequireSingleMemberAccess(expr);
         if (!MemberPathAnalyzer.IsCollectionType(collectionType))
-            throw new QueryConfigurationException($"Member '{name}' is not a collection. Use RuleFor instead.");
+            throw new QueryConfigurationException($"Member '{name}' is not a collection. Use RuleFor instead.",
+                new QueryConfigurationDiagnostics
+                {
+                    Kind = QueryConfigurationFailureKind.RuleForMemberNotCollection,
+                    MemberName = name,
+                    ActualTypeName = collectionType.FullName ?? collectionType.Name
+                });
 
         var elemType = MemberPathAnalyzer.GetEnumerableElementType(collectionType);
         if (elemType != typeof(TItem))
-            throw new QueryConfigurationException("Collection element type does not match RuleForCollection type argument.");
+            throw new QueryConfigurationException("Collection element type does not match RuleForCollection type argument.",
+                new QueryConfigurationDiagnostics
+                {
+                    Kind = QueryConfigurationFailureKind.RuleForCollectionElementTypeMismatch,
+                    MemberName = name,
+                    ExpectedTypeName = typeof(TItem).FullName ?? typeof(TItem).Name,
+                    ActualTypeName = elemType.FullName ?? elemType.Name
+                });
 
         return BeginCollection<TItem>(name, collectionType, new List<PathSegment>(), 0, "");
     }
 
     /// <summary>
     /// Sets the default sort specification applied when the client does not supply an explicit sort list.
+    /// At least one field is required; engine registration throws <see cref="T:AstQuerying.Queries.Common.Exceptions.QueryConfigurationException"/> if omitted.
     /// </summary>
     /// <param name="fields">Ordered sort fields.</param>
     protected void DefaultSorting(params SortFieldDto[] fields)
@@ -59,7 +73,7 @@ public abstract class QueryConfiguration<TEntity> where TEntity : class
     }
 
     /// <summary>
-    /// Sets a default filter clause merged or enforced by the host when the client sends no filter.
+    /// Sets a default filter clause used when the client sends no filter (for example by <see cref="T:AstQuerying.Queries.Common.Pipeline.Contracts.IEntityQueryPipeline"/>).
     /// </summary>
     /// <param name="clause">The JSON filter DTO root.</param>
     protected void DefaultFilter(FilterClauseDto clause)

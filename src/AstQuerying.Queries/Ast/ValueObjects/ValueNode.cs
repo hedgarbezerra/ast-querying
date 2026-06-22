@@ -12,7 +12,7 @@ public abstract record ValueNode;
 public sealed record ConstantValueNode(object? Raw) : ValueNode;
 
 /// <summary>
-/// A reference to a registered dynamic function by name (see <see cref="T:AstQuerying.Queries.Functions.Contracts.IFunctionProvider"/>).
+/// A reference to a registered dynamic function by name (see <see cref="T:AstQuerying.Queries.Functions.Contracts.IFunction"/>).
 /// </summary>
 /// <param name="FunctionName">The function key from the registry.</param>
 public sealed record FunctionValueNode(string FunctionName) : ValueNode;

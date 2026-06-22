@@ -1,3 +1,4 @@
+using AstQuerying.Queries.Common.Exceptions;
 using AstQuerying.Queries.Metadata.Contracts;
 using AstQuerying.Queries.Metadata.ValueObjects;
 using AstQuerying.Queries.Registry.Contracts;
@@ -5,7 +6,7 @@ using AstQuerying.Queries.Registry.Contracts;
 namespace AstQuerying.Queries.Metadata.Implementations;
 
 /// <summary>
-/// Non-generic <see cref="IQueryMetadataProvider"/> that resolves metadata from <see cref="IQueryRegistry"/>.
+/// <see cref="IQueryMetadataProvider"/> that resolves metadata from <see cref="IQueryRegistry"/>.
 /// </summary>
 public sealed class RegistryQueryMetadataProvider : IQueryMetadataProvider
 {
@@ -24,5 +25,12 @@ public sealed class RegistryQueryMetadataProvider : IQueryMetadataProvider
     public EntityMetadata? GetMetadata(Type entityClrType)
     {
         return _registry.GetEntity(entityClrType);
+    }
+
+    /// <inheritdoc />
+    public EntityMetadata GetMetadataForEntity<TEntity>() where TEntity : class
+    {
+        return _registry.GetEntity(typeof(TEntity)) ??
+               throw new QueryValidationException($"No query metadata for {typeof(TEntity).Name}.");
     }
 }

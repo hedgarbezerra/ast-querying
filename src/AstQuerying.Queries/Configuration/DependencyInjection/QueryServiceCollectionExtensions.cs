@@ -1,10 +1,10 @@
 using System.Reflection;
-using AstQuerying.Queries.Common.AspNetCore;
-using AstQuerying.Queries.Configuration.Discovery;
+using AstQuerying.Queries.Common.Pipeline.Contracts;
+using AstQuerying.Queries.Common.Pipeline.Implementations;
+using AstQuerying.Queries.Handlers;
 using AstQuerying.Queries.Filters.Contracts;
 using AstQuerying.Queries.Filters.Implementations;
 using AstQuerying.Queries.Functions.Contracts;
-using AstQuerying.Queries.Functions.Implementations;
 using AstQuerying.Queries.Metadata.Contracts;
 using AstQuerying.Queries.Metadata.Implementations;
 using AstQuerying.Queries.Registry.Contracts;
@@ -26,7 +26,7 @@ namespace AstQuerying.Queries.Configuration.DependencyInjection;
 public static class QueryServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the query engine and scans the given assemblies for <see cref="T:AstQuerying.Queries.Configuration.QueryConfiguration`1"/> and optional plugin operators/functions.
+    /// Registers the query engine and scans the given assemblies for <see cref="T:AstQuerying.Queries.Configuration.QueryConfiguration`1"/> and registers built-in operators and functions from <see cref="QueryOperatorsRegistry"/> and <see cref="QueryFunctionsRegistry"/>.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="assemblies">Assemblies to scan in addition to defaults.</param>
@@ -41,9 +41,8 @@ public static class QueryServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers the query engine. Open-generic infrastructure services (builders, resolver, metadata provider)
-    /// stay as singleton closed per entity at resolve time; filter operators and function providers are resolved from
-    /// assembly scan plus built-in implementations.
+    /// Registers the query engine. Core services are registered as singletons; built-in filter operators and functions come from
+    /// <see cref="QueryOperatorsRegistry"/> and <see cref="QueryFunctionsRegistry"/>.
     /// </summary>
     public static IServiceCollection AddQueryEngine(this IServiceCollection services,
         Action<QueryEngineOptions> configure)
@@ -59,60 +58,32 @@ public static class QueryServiceCollectionExtensions
         services.AddSingleton<IValueConverter, ValueConverter>();
         services.AddSingleton<IQueryMetadataProvider, RegistryQueryMetadataProvider>();
 
-        services.AddSingleton(typeof(IFilterExpressionBuilder<>), typeof(FilterExpressionBuilder<>));
-        services.AddSingleton(typeof(ISortBuilder<>), typeof(SortBuilder<>));
-        services.AddSingleton(typeof(IPropertyResolver<>), typeof(PropertyResolver<>));
-        services.AddSingleton(typeof(IQueryMetadataProvider<>), typeof(QueryMetadataProvider<>));
+        services.AddSingleton<IFilterExpressionBuilder, FilterExpressionBuilder>();
+        services.AddSingleton<IFilteringService, FilteringService>();
+        services.AddSingleton<ISortingKeyBuilder, SortingKeyBuilder>();
+        services.AddSingleton<ISortingService, SortingService>();
+        services.AddSingleton<IPaginationResolver, PaginationResolver>();
+        services.AddSingleton<IEntityQueryPipeline, EntityQueryPipeline>();
+        services.AddSingleton<IPropertyResolver, PropertyResolver>();
 
-        foreach (var op in BuiltInOperators)
+        foreach (var op in QueryOperatorsRegistry.Operators.Values)
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IFilterOperator>(op));
 
-        foreach (var type in QueryAssemblyScanner.DiscoverPluginTypes(options, typeof(IFilterOperator)))
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IFilterOperator>((IFilterOperator)Activator.CreateInstance(type)!));
-
-        foreach (var fn in BuiltInFunctions)
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IFunctionProvider>(fn));
-
-        foreach (var type in QueryAssemblyScanner.DiscoverPluginTypes(options, typeof(IFunctionProvider)))
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IFunctionProvider>((IFunctionProvider)Activator.CreateInstance(type)!));
+        foreach (var fn in QueryFunctionsRegistry.Functions.Values)
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IFunction>(fn));
 
         return services;
     }
 
     /// <summary>
-    /// Registers <see cref="QueryExceptionHandler"/> with the ASP.NET Core exception handler pipeline.
+    /// Registers <see cref="QueryExceptionHandler"/> with the ASP.NET Core exception handler pipeline and ensures <c>Microsoft.AspNetCore.Http.IProblemDetailsService</c> is available.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <returns>The same <paramref name="services"/> instance for chaining.</returns>
     public static IServiceCollection AddQueryExceptionHandler(this IServiceCollection services)
     {
+        services.AddProblemDetails();
         services.AddExceptionHandler<QueryExceptionHandler>();
         return services;
     }
-
-    private static readonly IFilterOperator[] BuiltInOperators =
-    {
-        new EqualOperator(),
-        new NotEqualOperator(),
-        new GreaterThanOperator(),
-        new GreaterThanOrEqualOperator(),
-        new LessThanOperator(),
-        new LessThanOrEqualOperator(),
-        new ContainsOperator(),
-        new StartsWithOperator(),
-        new EndsWithOperator(),
-        new InOperator(),
-        new NotInOperator(),
-        new IsNullOperator(),
-        new IsNotNullOperator()
-    };
-
-    private static readonly IFunctionProvider[] BuiltInFunctions =
-    {
-        new TodayFunction(),
-        new NowFunction(),
-        new StartOfMonthFunction(),
-        new EndOfMonthFunction(),
-        new CurrentYearFunction()
-    };
 }

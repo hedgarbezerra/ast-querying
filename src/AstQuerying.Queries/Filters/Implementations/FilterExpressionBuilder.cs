@@ -12,14 +12,13 @@ namespace AstQuerying.Queries.Filters.Implementations;
 /// <summary>
 /// Builds LINQ <see cref="Expression{Func}"/> predicates from validated AST nodes using registry operators and functions.
 /// </summary>
-/// <typeparam name="TEntity">The entity root type.</typeparam>
-public sealed class FilterExpressionBuilder<TEntity> : IFilterExpressionBuilder<TEntity> where TEntity : class
+public sealed class FilterExpressionBuilder : IFilterExpressionBuilder
 {
     private readonly IQueryRegistry _registry;
     private readonly IValueConverter _converter;
 
     /// <summary>
-    /// Initializes a new instance of <see cref="FilterExpressionBuilder{TEntity}"/>.
+    /// Initializes a new instance of <see cref="FilterExpressionBuilder"/>.
     /// </summary>
     /// <param name="registry">Registry providing metadata, operators, and functions.</param>
     /// <param name="converter">Literal value converter.</param>
@@ -30,7 +29,7 @@ public sealed class FilterExpressionBuilder<TEntity> : IFilterExpressionBuilder<
     }
 
     /// <inheritdoc />
-    public Expression<Func<TEntity, bool>> Build(QueryNode root)
+    public Expression<Func<TEntity, bool>> Build<TEntity>(QueryNode root) where TEntity : class
     {
         var meta = _registry.GetEntity(typeof(TEntity)) ??
                    throw new QueryValidationException($"No query metadata for {typeof(TEntity).Name}.");
@@ -66,8 +65,28 @@ public sealed class FilterExpressionBuilder<TEntity> : IFilterExpressionBuilder<
 
         Expression BuildOnLeaf(Expression leaf)
         {
-            var (single, list) = BuildOperatorValues(prop, cmp);
-            return op.BuildPredicate(leaf, prop.LeafType, single, list);
+            if (op is IMemberOnlyFilterOperator memberOnly)
+                return memberOnly.CreateExpression(leaf);
+
+            if (op is IMultiValueFilterOperator multi)
+            {
+                if (cmp is not MultiValueComparisonNode mv)
+                    throw new QueryValidationException($"Operator '{cmp.OperatorName}' requires multiple values.");
+
+                return multi.CreateExpression(leaf, BuildMultiValueExpressions(prop, mv.Values, cmp.OperatorName));
+            }
+
+            if (op is ISingleValueFilterOperator singleOp)
+            {
+                if (cmp is not SingleValueComparisonNode sv || sv.Value is null)
+                    throw new QueryValidationException($"Operator '{cmp.OperatorName}' requires value.");
+
+                var val = ResolveValueNode(sv.Value, prop.LeafType, prop.Path);
+                var rhs = Expression.Constant(val, prop.LeafType);
+                return singleOp.CreateExpression(leaf, rhs);
+            }
+
+            throw new QueryValidationException($"Operator '{cmp.OperatorName}' is not supported.");
         }
 
         if (colIdx < 0)
@@ -85,34 +104,18 @@ public sealed class FilterExpressionBuilder<TEntity> : IFilterExpressionBuilder<
         return Expression.Call(anyMi, collectionExpr, lambda);
     }
 
-    private (Expression? Single, IReadOnlyList<Expression>? List) BuildOperatorValues(PropertyMetadata prop,
-        ComparisonNode cmp)
+    private IReadOnlyList<Expression> BuildMultiValueExpressions(PropertyMetadata prop, IReadOnlyList<ValueNode> values,
+        string operatorName)
     {
+        if (values.Count == 0)
+            throw new QueryValidationException($"Operator '{operatorName}' requires values.");
+
         var target = Nullable.GetUnderlyingType(prop.LeafType) ?? prop.LeafType;
+        var list = new List<Expression>();
+        foreach (var v in values)
+            list.Add(Expression.Constant(ResolveValueNode(v, prop.LeafType, prop.Path), target));
 
-        if (string.Equals(cmp.OperatorName, "in", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(cmp.OperatorName, "notIn", StringComparison.OrdinalIgnoreCase))
-        {
-            if (cmp.Values is null)
-                return (null, Array.Empty<Expression>());
-
-            var list = new List<Expression>();
-            foreach (var v in cmp.Values)
-                list.Add(Expression.Constant(ResolveValueNode(v, prop.LeafType, prop.Path), target));
-
-            return (null, list);
-        }
-
-        if (string.Equals(cmp.OperatorName, "isNull", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(cmp.OperatorName, "isNotNull", StringComparison.OrdinalIgnoreCase))
-            return (null, null);
-
-        if (cmp.Value is null)
-            throw new QueryValidationException($"Operator '{cmp.OperatorName}' requires value.");
-
-        var val = ResolveValueNode(cmp.Value, prop.LeafType, prop.Path);
-        var single = Expression.Constant(val, prop.LeafType);
-        return (single, null);
+        return list;
     }
 
     private object? ResolveValueNode(ValueNode node, Type leafType, string path)

@@ -2,8 +2,7 @@ using AstQuerying.Queries.Common.Exceptions;
 using AstQuerying.Queries.Configuration.DependencyInjection;
 using AstQuerying.Queries.Metadata.Contracts;
 using AstQuerying.Queries.Sorting.Contracts;
-using AstQuerying.Queries.Sorting.Implementations;
-using AstQuerying.Queries.Sorting.ValueObjects;
+using AstQuerying.Queries.Sorting.Dtos;
 using AstQuerying.Queries.Tests.Support;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,19 +14,19 @@ public sealed class MetadataSortAndPaginationTests
     public void GenericMetadataProviderReturnsConfiguredPropertyPaths()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
-        var provider = sp.GetRequiredService<IQueryMetadataProvider<Person>>();
-        var meta = provider.GetMetadataForEntity();
+        var provider = sp.GetRequiredService<IQueryMetadataProvider>();
+        var meta = provider.GetMetadataForEntity<Person>();
         var paths = meta.Properties.Select(p => p.Path).OrderBy(x => x).ToArray();
 
-        Assert.Equal(new[] { "Age", "Id", "Name" }, paths);
+        Assert.Equal(new[] { "Age", "BirthDate", "Id", "Name", "Salary" }, paths);
     }
 
     [Fact]
-    public void SortBuilderBuildsNameKeySelectorWithAscendingDirection()
+    public void SortingKeyBuilderBuildsNameKeySelectorWithAscendingDirection()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
-        var sortBuilder = sp.GetRequiredService<ISortBuilder<Person>>();
-        var lambda = sortBuilder.BuildKeySelector(new SortFieldDto { Field = "Name", Direction = "asc" });
+        var keyBuilder = sp.GetRequiredService<ISortingKeyBuilder>();
+        var lambda = keyBuilder.Build<Person>(new SortFieldDto { Field = "Name", Direction = SortDirection.Ascending });
 
         Assert.Equal(typeof(string), lambda.ReturnType);
         var compiled = (Func<Person, string>)lambda.Compile();
@@ -36,59 +35,60 @@ public sealed class MetadataSortAndPaginationTests
     }
 
     [Fact]
-    public void SortBuilderRejectsEmptySortList()
+    public void SortingServiceRejectsEmptySortList()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
-        var sortBuilder = sp.GetRequiredService<ISortBuilder<Person>>();
+        var sortingService = sp.GetRequiredService<ISortingService>();
         var source = new[] { new Person { Id = 1, Name = "A", Age = 1 } }.AsQueryable();
 
-        Assert.Throws<QueryValidationException>(() => sortBuilder.Apply(source, Array.Empty<SortFieldDto>()));
+        Assert.Throws<QueryValidationException>(() => sortingService.Apply(source, Array.Empty<SortFieldDto>()));
     }
 
     [Fact]
-    public void SortBuilderRejectsUnknownField()
+    public void SortingServiceRejectsUnknownField()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
-        var sortBuilder = sp.GetRequiredService<ISortBuilder<Person>>();
+        var sortingService = sp.GetRequiredService<ISortingService>();
         var source = Array.Empty<Person>().AsQueryable();
 
         Assert.Throws<QueryValidationException>(() =>
-            sortBuilder.Apply(source, new List<SortFieldDto> { new() { Field = "Missing", Direction = "asc" } }));
+            sortingService.Apply(source, new List<SortFieldDto> { new() { Field = "Missing", Direction = SortDirection.Ascending } }));
     }
 
     [Fact]
-    public void PaginationResolverEnforcesMaxTake()
+    public void PaginationResolverEnforcesMaxPageSize()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
         var options = sp.GetRequiredService<QueryEngineOptions>();
+        var resolver = sp.GetRequiredService<IPaginationResolver>();
 
         var ex = Assert.Throws<QueryValidationException>(() =>
-            PaginationResolver.Resolve(new PaginationRequestDto { Take = options.MaxTake + 1 }, options));
+            resolver.Resolve(new PaginationDto { Page = 1, Size = options.MaxPageSize + 1 }));
 
-        Assert.Contains("take", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("size", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void PaginationResolverRejectsMixedPagingModes()
+    public void PaginationResolverUsesDefaultsWhenDtoNull()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
         var options = sp.GetRequiredService<QueryEngineOptions>();
+        var resolver = sp.GetRequiredService<IPaginationResolver>();
 
-        Assert.Throws<QueryValidationException>(() =>
-            PaginationResolver.Resolve(
-                new PaginationRequestDto { Page = 1, Skip = 0 },
-                options));
+        var (skip, take) = resolver.Resolve(null);
+
+        Assert.Equal(0, skip);
+        Assert.Equal(options.DefaultPageSize, take);
     }
 
     [Fact]
-    public void PaginationResolverComputesSkipFromPage()
+    public void PaginationResolverComputesSkipFromOneBasedPage()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
-        var options = sp.GetRequiredService<QueryEngineOptions>();
+        var resolver = sp.GetRequiredService<IPaginationResolver>();
 
-        var (skip, take) = PaginationResolver.Resolve(
-            new PaginationRequestDto { Page = 3, PageSize = 10 },
-            options);
+        var (skip, take) = resolver.Resolve(
+            new PaginationDto { Page = 3, Size = 10 });
 
         Assert.Equal(20, skip);
         Assert.Equal(10, take);

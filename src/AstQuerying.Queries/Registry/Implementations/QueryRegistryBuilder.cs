@@ -5,152 +5,126 @@ using AstQuerying.Queries.Configuration;
 using AstQuerying.Queries.Configuration.DependencyInjection;
 using AstQuerying.Queries.Configuration.Discovery;
 using AstQuerying.Queries.Filters.Contracts;
-using AstQuerying.Queries.Filters.Implementations;
+using AstQuerying.Queries.Filters.Operators;
 using AstQuerying.Queries.Functions.Contracts;
-using AstQuerying.Queries.Functions.Implementations;
+using AstQuerying.Queries.Functions.Implementations.Temporal;
 using AstQuerying.Queries.Metadata.ValueObjects;
 using AstQuerying.Queries.Registry.Contracts;
-using AstQuerying.Queries.Sorting.ValueObjects;
 
 namespace AstQuerying.Queries.Registry.Implementations;
-
-internal sealed class QueryRegistry : IQueryRegistry
-{
-    public QueryRegistry(
-        IReadOnlyDictionary<Type, EntityMetadata> entities,
-        IReadOnlyDictionary<string, IFilterOperator> operators,
-        IReadOnlyDictionary<string, IFunctionProvider> functions)
-    {
-        Entities = entities;
-        Operators = operators;
-        Functions = functions;
-    }
-
-    public IReadOnlyDictionary<Type, EntityMetadata> Entities { get; }
-
-    public IReadOnlyDictionary<string, IFilterOperator> Operators { get; }
-
-    public IReadOnlyDictionary<string, IFunctionProvider> Functions { get; }
-
-    public EntityMetadata? GetEntity(Type entityClrType) => Entities.GetValueOrDefault(entityClrType);
-}
 
 internal static class QueryRegistryBuilder
 {
     public static QueryRegistry Build(QueryEngineOptions options)
     {
-        var assemblies = QueryAssemblyScanner.EnumerateAssemblies(options).ToList();
-
+        var assemblies = new HashSet<Assembly>(options.AssembliesToScan);
         var entities = new Dictionary<Type, EntityMetadata>();
         foreach (var asm in assemblies)
             ScanQueryConfigurations(asm, entities);
 
-        var operators = new Dictionary<string, IFilterOperator>(StringComparer.OrdinalIgnoreCase);
-        RegisterOperators(operators, new IFilterOperator[]
-        {
-            new EqualOperator(),
-            new NotEqualOperator(),
-            new GreaterThanOperator(),
-            new GreaterThanOrEqualOperator(),
-            new LessThanOperator(),
-            new LessThanOrEqualOperator(),
-            new ContainsOperator(),
-            new StartsWithOperator(),
-            new EndsWithOperator(),
-            new InOperator(),
-            new NotInOperator(),
-            new IsNullOperator(),
-            new IsNotNullOperator()
-        });
+        ValidateBuiltInOperatorImplementationsRegistered();
+        ValidateBuiltInFunctionImplementationsRegistered();
 
-        foreach (var type in assemblies.SelectMany(a =>
-                     QueryAssemblyScanner.GetConcreteAssignableTypes(a, typeof(IFilterOperator))))
-        {
-            if (type.ContainsGenericParameters)
-                continue;
+        return new QueryRegistry(entities, QueryOperatorsRegistry.Operators, QueryFunctionsRegistry.Functions);
+    }
 
-            if (QueryAssemblyScanner.IsBuiltInPluginImplementation(type, typeof(IFilterOperator)))
-                continue;
+    private static void ValidateBuiltInOperatorImplementationsRegistered()
+    {
+        var assembly = typeof(IFilterOperator).Assembly;
+        var discovered = assembly.GetTypes()
+            .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(IFilterOperator).IsAssignableFrom(t))
+            .ToHashSet();
+        var registered = new HashSet<Type>(QueryOperatorsRegistry.Operators.Values.Select(o => o.GetType()));
+        if (discovered.SetEquals(registered))
+            return;
 
-            RegisterOperator(operators, type);
-        }
+        var missing = string.Join(", ", discovered.Except(registered).Select(t => t.FullName ?? t.Name));
+        var extra = string.Join(", ", registered.Except(discovered).Select(t => t.FullName ?? t.Name));
+        throw new QueryConfigurationException(
+            $"Built-in filter operator types are not aligned with {nameof(QueryOperatorsRegistry)}. Missing: [{missing}]. Extra: [{extra}].",
+            new QueryConfigurationDiagnostics
+            {
+                Kind = QueryConfigurationFailureKind.BuiltInFilterOperatorRegistrationIncomplete,
+                AssemblyFullName = assembly.FullName
+            });
+    }
 
-        var functions = new Dictionary<string, IFunctionProvider>(StringComparer.OrdinalIgnoreCase);
-        RegisterFunctions(functions, new IFunctionProvider[]
-        {
-            new TodayFunction(),
-            new NowFunction(),
-            new StartOfMonthFunction(),
-            new EndOfMonthFunction(),
-            new CurrentYearFunction()
-        });
+    private static void ValidateBuiltInFunctionImplementationsRegistered()
+    {
+        var assembly = typeof(IFunction).Assembly;
+        var discovered = assembly.GetTypes()
+            .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(IFunction).IsAssignableFrom(t))
+            .ToHashSet();
+        var registered = new HashSet<Type>(QueryFunctionsRegistry.Functions.Values.Select(f => f.GetType()));
+        if (discovered.SetEquals(registered))
+            return;
 
-        foreach (var type in assemblies.SelectMany(a =>
-                     QueryAssemblyScanner.GetConcreteAssignableTypes(a, typeof(IFunctionProvider))))
-        {
-            if (type.ContainsGenericParameters)
-                continue;
-
-            if (QueryAssemblyScanner.IsBuiltInPluginImplementation(type, typeof(IFunctionProvider)))
-                continue;
-
-            RegisterFunction(functions, type);
-        }
-
-        return new QueryRegistry(entities, operators, functions);
+        var missing = string.Join(", ", discovered.Except(registered).Select(t => t.FullName ?? t.Name));
+        var extra = string.Join(", ", registered.Except(discovered).Select(t => t.FullName ?? t.Name));
+        throw new QueryConfigurationException(
+            $"Built-in function types are not aligned with {nameof(QueryFunctionsRegistry)}. Missing: [{missing}]. Extra: [{extra}].",
+            new QueryConfigurationDiagnostics
+            {
+                Kind = QueryConfigurationFailureKind.BuiltInFunctionRegistrationIncomplete,
+                AssemblyFullName = assembly.FullName
+            });
     }
 
     private static void ScanQueryConfigurations(Assembly asm, Dictionary<Type, EntityMetadata> entities)
     {
-        Type? configEntity;
-        foreach (var type in asm.GetTypes().Where(t => t is { IsClass: true, IsAbstract: false }))
+        foreach (var type in asm.GetTypes().Where(t => t is { IsClass: true, IsAbstract: false } && typeof(QueryConfiguration<>).IsAssignableFrom(t)))
         {
-            configEntity = GetConfiguredEntityType(type);
-            if (configEntity is null)
-                continue;
-
-            if (entities.ContainsKey(configEntity))
+            if (entities.ContainsKey(type))
                 throw new QueryConfigurationException(
-                    $"Duplicate QueryConfiguration for entity {configEntity.Name} in assembly {asm.FullName}.");
+                    $"Duplicate QueryConfiguration for entity {type.Name} in assembly {asm.FullName}.",
+                    new QueryConfigurationDiagnostics
+                    {
+                        Kind = QueryConfigurationFailureKind.DuplicateQueryConfigurationForEntity,
+                        EntityTypeName = type.Name,
+                        AssemblyFullName = asm.FullName
+                    });
 
             var metadata = BuildMetadataForConfiguration(type, configEntity);
-            entities.Add(configEntity, metadata);
+            entities.Add(type, metadata);
         }
-    }
-
-    private static Type? GetConfiguredEntityType(Type configType)
-    {
-        var t = configType.BaseType;
-        while (t is not null)
-        {
-            if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(QueryConfiguration<>))
-                return t.GetGenericArguments()[0];
-
-            t = t.BaseType;
-        }
-
-        return null;
     }
 
     private static EntityMetadata BuildMetadataForConfiguration(Type configType, Type entityType)
     {
         var instance = Activator.CreateInstance(configType) ??
-                       throw new QueryConfigurationException($"Cannot create instance of {configType.Name}.");
+                       throw new QueryConfigurationException($"Cannot create instance of {configType.Name}.",
+                           new QueryConfigurationDiagnostics
+                           {
+                               Kind = QueryConfigurationFailureKind.CannotCreateConfigurationInstance,
+                               ConfigTypeName = configType.Name,
+                               EntityTypeName = entityType.Name
+                           });
 
         var method = typeof(QueryRegistryBuilder).GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
-            .Single(m => m.Name == nameof(BuildMetadataGeneric) && m.IsGenericMethodDefinition);
+            .Single(m => m.Name == nameof(BuildMetadataGeneric) && m.IsGenericMethodDefinition &&
+                         m.GetParameters().Length == 2);
 
-        return (EntityMetadata)method.MakeGenericMethod(entityType).Invoke(null, new[] { instance })!;
+        return (EntityMetadata)method.MakeGenericMethod(entityType).Invoke(null, new object[] { configType, instance })!;
     }
 
-    private static EntityMetadata BuildMetadataGeneric<TEntity>(object configInstance) where TEntity : class
+    private static EntityMetadata BuildMetadataGeneric<TEntity>(Type configClrType, object configInstance)
+        where TEntity : class
     {
         var cfg = (QueryConfiguration<TEntity>)configInstance;
         var drafts = cfg.BuildPropertyDrafts();
         var props = drafts.Select(ToPropertyMetadata).ToList();
         var defaultSort = cfg.GetDefaultSort();
         var defaultFilter = cfg.GetDefaultFilter();
-        ValidateDefaultSort(typeof(TEntity), props, defaultSort);
+        if (defaultSort is null || defaultSort.Count == 0)
+            throw new QueryConfigurationException(
+                $"QueryConfiguration '{configClrType.Name}' for entity {typeof(TEntity).Name} must call DefaultSorting with at least one field.",
+                new QueryConfigurationDiagnostics
+                {
+                    Kind = QueryConfigurationFailureKind.DefaultSortMissing,
+                    EntityTypeName = typeof(TEntity).Name,
+                    ConfigTypeName = configClrType.Name
+                });
+
         return new EntityMetadata(typeof(TEntity), props, defaultSort, defaultFilter);
     }
 
@@ -158,81 +132,5 @@ internal static class QueryRegistryBuilder
     {
         return new PropertyMetadata(d.Path, d.Alias, d.LeafType, d.Segments, d.DefaultValue,
             d.AllowedOperators, d.AllowedFunctions, d.AllowSortAsc, d.AllowSortDesc);
-    }
-
-    private static void ValidateDefaultSort(Type entityType, IReadOnlyList<PropertyMetadata> props,
-        IReadOnlyList<SortFieldDto>? defaultSort)
-    {
-        if (defaultSort is null || defaultSort.Count == 0)
-            return;
-
-        var meta = new EntityMetadata(entityType, props);
-        foreach (var s in defaultSort)
-        {
-            var p = meta.FindByPathOrAlias(s.Field) ??
-                    throw new QueryConfigurationException(
-                        $"Default sort references unknown field '{s.Field}' on {entityType.Name}.");
-
-            var desc = string.Equals(s.Direction, "desc", StringComparison.OrdinalIgnoreCase);
-            if (desc)
-            {
-                if (!p.AllowSortDescending)
-                    throw new QueryConfigurationException(
-                        $"Default sort cannot use descending for '{s.Field}' on {entityType.Name}.");
-            }
-            else if (!p.AllowSortAscending)
-            {
-                throw new QueryConfigurationException(
-                    $"Default sort cannot use ascending for '{s.Field}' on {entityType.Name}.");
-            }
-        }
-    }
-
-    private static void RegisterOperators(Dictionary<string, IFilterOperator> map, IEnumerable<IFilterOperator> items)
-    {
-        foreach (var op in items)
-            AddOrThrow(map, op.Name, op);
-    }
-
-    private static void RegisterOperator(Dictionary<string, IFilterOperator> map, Type type)
-    {
-        if (type.ContainsGenericParameters)
-            return;
-
-        var op = (IFilterOperator)Activator.CreateInstance(type)!;
-        AddOrThrow(map, op.Name, op);
-    }
-
-    private static void RegisterFunctions(Dictionary<string, IFunctionProvider> map,
-        IEnumerable<IFunctionProvider> items)
-    {
-        foreach (var f in items)
-            AddOrThrowFunction(map, f.Name, f);
-    }
-
-    private static void RegisterFunction(Dictionary<string, IFunctionProvider> map, Type type)
-    {
-        if (type.ContainsGenericParameters)
-            return;
-
-        var f = (IFunctionProvider)Activator.CreateInstance(type)!;
-        AddOrThrowFunction(map, f.Name, f);
-    }
-
-    private static void AddOrThrow(Dictionary<string, IFilterOperator> map, string name, IFilterOperator op)
-    {
-        if (map.ContainsKey(name))
-            throw new QueryConfigurationException($"Duplicate filter operator name '{name}'.");
-
-        map[name] = op;
-    }
-
-    private static void AddOrThrowFunction(Dictionary<string, IFunctionProvider> map, string name,
-        IFunctionProvider f)
-    {
-        if (map.ContainsKey(name))
-            throw new QueryConfigurationException($"Duplicate function name '{name}'.");
-
-        map[name] = f;
     }
 }
