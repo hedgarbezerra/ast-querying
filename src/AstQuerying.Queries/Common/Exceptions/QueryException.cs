@@ -1,12 +1,12 @@
 namespace AstQuerying.Queries.Common.Exceptions;
 
 /// <summary>
-/// Base exception for query engine failures that should be mapped to HTTP responses.
+///     Base exception for query engine failures that should be mapped to HTTP responses.
 /// </summary>
 public class QueryException : Exception
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="QueryException"/> class.
+    ///     Initializes a new instance of the <see cref="QueryException" /> class.
     /// </summary>
     /// <param name="statusCode">The HTTP status code to return.</param>
     /// <param name="reason">Stable machine-oriented category for this failure type (constant per derived exception type).</param>
@@ -19,7 +19,7 @@ public class QueryException : Exception
     }
 
     /// <summary>
-    /// Initializes a new instance with an inner exception for diagnostics.
+    ///     Initializes a new instance with an inner exception for diagnostics.
     /// </summary>
     /// <param name="statusCode">The HTTP status code to return.</param>
     /// <param name="reason">Stable machine-oriented category for this failure type.</param>
@@ -33,12 +33,13 @@ public class QueryException : Exception
     }
 
     /// <summary>
-    /// Gets the HTTP status code associated with this failure.
+    ///     Gets the HTTP status code associated with this failure.
     /// </summary>
     public int StatusCode { get; }
 
     /// <summary>
-    /// Gets the stable failure category for this exception type (for example a constant exposed on <see cref="QueryValidationException"/>).
+    ///     Gets the stable failure category for this exception type (for example a constant exposed on
+    ///     <see cref="QueryValidationException" />).
     /// </summary>
     public string Reason { get; }
 }

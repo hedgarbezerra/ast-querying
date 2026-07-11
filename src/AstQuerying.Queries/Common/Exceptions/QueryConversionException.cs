@@ -3,17 +3,17 @@ using Microsoft.AspNetCore.Http;
 namespace AstQuerying.Queries.Common.Exceptions;
 
 /// <summary>
-/// Thrown when a literal or function result cannot be converted to the target property type.
+///     Thrown when a literal or function result cannot be converted to the target property type.
 /// </summary>
 public sealed class QueryConversionException : QueryException
 {
     /// <summary>
-    /// Stable <see cref="QueryException.Reason"/> value for all instances of this exception type.
+    ///     Stable <see cref="QueryException.Reason" /> value for all instances of this exception type.
     /// </summary>
     public const string ReasonCode = "QueryConversion";
 
     /// <summary>
-    /// Initializes a new instance with HTTP 400.
+    ///     Initializes a new instance with HTTP 400.
     /// </summary>
     /// <param name="message">Description of the conversion failure.</param>
     public QueryConversionException(string message)
@@ -22,7 +22,7 @@ public sealed class QueryConversionException : QueryException
     }
 
     /// <summary>
-    /// Initializes a new instance with an inner exception.
+    ///     Initializes a new instance with an inner exception.
     /// </summary>
     /// <param name="message">Description of the conversion failure.</param>
     /// <param name="innerException">The underlying error.</param>

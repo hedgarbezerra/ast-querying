@@ -1,17 +1,21 @@
 using System.Linq.Expressions;
-using AstQuerying.Queries.Filters.Contracts;
 
 namespace AstQuerying.Queries.Filters.Operators;
 
-/// <summary>Base for <c>isNull</c> / <c>isNotNull</c> with shared null semantics for nullable value types and reference types.</summary>
+/// <summary>
+///     Base for <c>isNull</c> / <c>isNotNull</c> with shared null semantics for nullable value types and reference
+///     types.
+/// </summary>
 public abstract class NullOperatorBase : IMemberOnlyFilterOperator
 {
     /// <inheritdoc />
     public abstract string Name { get; }
 
     /// <inheritdoc />
-    public Expression CreateExpression(Expression memberAccess) =>
-        FinalizeIsNull(CreateNullExpression(memberAccess));
+    public Expression CreateExpression(Expression memberAccess)
+    {
+        return FinalizeIsNull(CreateNullExpression(memberAccess));
+    }
 
     /// <summary>Hook for derived operators.</summary>
     protected abstract Expression FinalizeIsNull(Expression isNullExpression);
@@ -41,10 +45,13 @@ public sealed class IsNullOperator : NullOperatorBase
     public override string Name => Key;
 
     /// <inheritdoc />
-    protected override Expression FinalizeIsNull(Expression isNullExpression) => isNullExpression;
+    protected override Expression FinalizeIsNull(Expression isNullExpression)
+    {
+        return isNullExpression;
+    }
 }
 
-/// <summary>Non-null test; the logical negation of <see cref="IsNullOperator"/>.</summary>
+/// <summary>Non-null test; the logical negation of <see cref="IsNullOperator" />.</summary>
 public sealed class IsNotNullOperator : NullOperatorBase
 {
     public const string Key = "isNotNull";
@@ -53,5 +60,8 @@ public sealed class IsNotNullOperator : NullOperatorBase
     public override string Name => Key;
 
     /// <inheritdoc />
-    protected override Expression FinalizeIsNull(Expression isNullExpression) => Expression.Not(isNullExpression);
+    protected override Expression FinalizeIsNull(Expression isNullExpression)
+    {
+        return Expression.Not(isNullExpression);
+    }
 }

@@ -4,12 +4,12 @@ using AstQuerying.Queries.Sorting.Dtos;
 namespace AstQuerying.Queries.Metadata.ValueObjects;
 
 /// <summary>
-/// Immutable metadata for a single entity type, including all filterable/sortable properties and optional defaults.
+///     Immutable metadata for a single entity type, including all filterable/sortable properties and optional defaults.
 /// </summary>
 public sealed class EntityMetadata
 {
     /// <summary>
-    /// Initializes a new instance of <see cref="EntityMetadata"/>.
+    ///     Initializes a new instance of <see cref="EntityMetadata" />.
     /// </summary>
     /// <param name="clrType">The entity CLR type.</param>
     /// <param name="properties">Configured property rules.</param>
@@ -28,30 +28,30 @@ public sealed class EntityMetadata
     }
 
     /// <summary>
-    /// Gets the entity CLR type this metadata describes.
+    ///     Gets the entity CLR type this metadata describes.
     /// </summary>
     public Type ClrType { get; }
 
     /// <summary>
-    /// Gets all configured properties for filtering and sorting.
+    ///     Gets all configured properties for filtering and sorting.
     /// </summary>
     public IReadOnlyList<PropertyMetadata> Properties { get; }
 
     /// <summary>
-    /// Gets the configured default sort fields, if any.
+    ///     Gets the configured default sort fields, if any.
     /// </summary>
     public IReadOnlyList<SortFieldDto>? DefaultSort { get; }
 
     /// <summary>
-    /// Gets the configured default filter clause, if any.
+    ///     Gets the configured default filter clause, if any.
     /// </summary>
     public FilterClauseDto? DefaultFilter { get; }
 
     /// <summary>
-    /// Finds metadata by exact path or configured alias (case-insensitive).
+    ///     Finds metadata by exact path or configured alias (case-insensitive).
     /// </summary>
     /// <param name="key">The path or alias from the client.</param>
-    /// <returns>The matching <see cref="PropertyMetadata"/>, or <see langword="null"/>.</returns>
+    /// <returns>The matching <see cref="PropertyMetadata" />, or <see langword="null" />.</returns>
     public PropertyMetadata? FindByPathOrAlias(string key)
     {
         foreach (var p in Properties)

@@ -1,12 +1,12 @@
-using System.Linq;
 using System.Linq.Expressions;
-using AstQuerying.Queries.Filters.Contracts;
-using AstQuerying.Queries.Registry.Implementations;
+using AstQuerying.Queries.Registries;
 
 namespace AstQuerying.Queries.Filters.Operators;
 
 /// <summary>
-/// Base for <c>in</c> / <c>notIn</c>; builds <see cref="Enumerable.Contains{TSource}(IEnumerable{TSource}, TSource)"/> over a constant array for EF Core <c>IN</c> translation.
+///     Base for <c>in</c> / <c>notIn</c>; builds
+///     <see cref="Enumerable.Contains{TSource}(IEnumerable{TSource}, TSource)" /> over a constant array for EF Core
+///     <c>IN</c> translation.
 /// </summary>
 public abstract class CollectionsBaseOperator : IMultiValueFilterOperator
 {
@@ -49,7 +49,10 @@ public sealed class InOperator : CollectionsBaseOperator
     public override string Name => Key;
 
     /// <inheritdoc />
-    protected override Expression FinalizeContains(Expression containsInSet) => containsInSet;
+    protected override Expression FinalizeContains(Expression containsInSet)
+    {
+        return containsInSet;
+    }
 }
 
 /// <summary>Negated set membership for EF Core translation.</summary>
@@ -61,5 +64,8 @@ public sealed class NotInOperator : CollectionsBaseOperator
     public override string Name => Key;
 
     /// <inheritdoc />
-    protected override Expression FinalizeContains(Expression containsInSet) => Expression.Not(containsInSet);
+    protected override Expression FinalizeContains(Expression containsInSet)
+    {
+        return Expression.Not(containsInSet);
+    }
 }

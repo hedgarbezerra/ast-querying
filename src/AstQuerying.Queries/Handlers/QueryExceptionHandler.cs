@@ -8,7 +8,8 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace AstQuerying.Queries.Handlers;
 
 /// <summary>
-/// ASP.NET Core <see cref="IExceptionHandler"/> that maps <see cref="QueryException"/> to RFC 7807 <see cref="ProblemDetails"/> using <see cref="IProblemDetailsService"/>.
+///     ASP.NET Core <see cref="IExceptionHandler" /> that maps <see cref="QueryException" /> to RFC 7807
+///     <see cref="ProblemDetails" /> using <see cref="IProblemDetailsService" />.
 /// </summary>
 public sealed class QueryExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {
@@ -19,42 +20,34 @@ public sealed class QueryExceptionHandler(IProblemDetailsService problemDetailsS
         if (exception is not QueryException queryException)
             return false;
 
-        var statusCode = queryException.StatusCode;
-        httpContext.Response.StatusCode = statusCode;
+        httpContext.Response.StatusCode = queryException.StatusCode;
 
-        var title = ReasonPhrases.GetReasonPhrase(statusCode);
+        var title = ReasonPhrases.GetReasonPhrase(queryException.StatusCode);
         if (string.IsNullOrEmpty(title))
-            title = "Error";
+            title = exception.Message;
+
+        var detailsExtensions = new Dictionary<string, object?>
+        {
+            ["exceptionType"] = queryException.GetType().FullName ?? queryException.GetType().Name,
+            ["reason"] = queryException.Reason
+        };
+        if (queryException is QueryConfigurationException configurationException &&
+            configurationException.Diagnostics is not null)
+            detailsExtensions["configuration"] =
+                JsonSerializer.SerializeToElement(configurationException.Diagnostics);
 
         var problemDetails = new ProblemDetails
         {
-            Status = statusCode,
+            Status = queryException.StatusCode,
             Title = title,
-            Detail = queryException.Message
+            Detail = queryException.Message,
+            Extensions = detailsExtensions
         };
-
-        problemDetails.Extensions["exceptionType"] = queryException.GetType().FullName ?? queryException.GetType().Name;
-        problemDetails.Extensions["reason"] = queryException.Reason;
-
-        if (queryException is QueryConfigurationException configurationException &&
-            configurationException.Diagnostics is not null)
-        {
-            problemDetails.Extensions["configuration"] =
-                JsonSerializer.SerializeToElement(configurationException.Diagnostics);
-        }
-
-        if (queryException.InnerException is not null)
-        {
-            problemDetails.Extensions["innerExceptionType"] =
-                queryException.InnerException.GetType().FullName ?? queryException.InnerException.GetType().Name;
-            problemDetails.Extensions["innerExceptionMessage"] = queryException.InnerException.Message;
-        }
-
         await problemDetailsService.WriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
             ProblemDetails = problemDetails,
-            Exception = queryException
+            Exception = queryException,
         }).ConfigureAwait(false);
 
         return true;

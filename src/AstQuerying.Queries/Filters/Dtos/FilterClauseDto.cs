@@ -4,48 +4,48 @@ using System.Text.Json.Serialization;
 namespace AstQuerying.Queries.Filters.Dtos;
 
 /// <summary>
-/// JSON-friendly representation of a filter clause tree (logical nodes and leaf comparisons).
+///     JSON-friendly representation of a filter clause tree (logical nodes and leaf comparisons).
 /// </summary>
 public sealed class FilterClauseDto
 {
     /// <summary>
-    /// Gets or sets child clauses combined with logical AND.
+    ///     Gets or sets child clauses combined with logical AND.
     /// </summary>
     [JsonPropertyName("and")]
     public List<FilterClauseDto>? And { get; set; }
 
     /// <summary>
-    /// Gets or sets child clauses combined with logical OR.
+    ///     Gets or sets child clauses combined with logical OR.
     /// </summary>
     [JsonPropertyName("or")]
     public List<FilterClauseDto>? Or { get; set; }
 
     /// <summary>
-    /// Gets or sets a single clause wrapped with logical NOT.
+    ///     Gets or sets a single clause wrapped with logical NOT.
     /// </summary>
     [JsonPropertyName("not")]
     public FilterClauseDto? Not { get; set; }
 
     /// <summary>
-    /// Gets or sets the property path or alias for a leaf comparison.
+    ///     Gets or sets the property path or alias for a leaf comparison.
     /// </summary>
     [JsonPropertyName("field")]
     public string? Field { get; set; }
 
     /// <summary>
-    /// Gets or sets the operator name.
+    ///     Gets or sets the operator name.
     /// </summary>
     [JsonPropertyName("operator")]
     public string? Operator { get; set; }
 
     /// <summary>
-    /// Gets or sets the single comparison value for unary operators.
+    ///     Gets or sets the single comparison value for unary operators.
     /// </summary>
     [JsonPropertyName("value")]
     public JsonElement? Value { get; set; }
 
     /// <summary>
-    /// Gets or sets multiple values for set-style operators such as <c>in</c>.
+    ///     Gets or sets multiple values for set-style operators such as <c>in</c>.
     /// </summary>
     [JsonPropertyName("values")]
     public List<JsonElement>? Values { get; set; }

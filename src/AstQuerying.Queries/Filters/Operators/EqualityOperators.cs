@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
-using AstQuerying.Queries.Filters.Contracts;
-using AstQuerying.Queries.Registry.Implementations;
+using AstQuerying.Queries.Registries;
 
 namespace AstQuerying.Queries.Filters.Operators;
 
