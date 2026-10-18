@@ -1,5 +1,5 @@
 using System.Reflection;
-using AstQuerying.Queries.Configuration.DependencyInjection;
+using AstQuerying.Queries.Configurations.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AstQuerying.Queries.Tests.Support;

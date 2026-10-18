@@ -1,18 +1,10 @@
-using System.Reflection;
-
-namespace AstQuerying.Queries.Configurations;
+namespace AstQuerying.Queries.Common;
 
 /// <summary>
-///     Options controlling assembly scanning for query configurations and numeric limits for pagination.
+///     Options controlling numeric limits for pagination.
 /// </summary>
-public sealed class QueryEngineOptions
+public sealed class QueryOptions
 {
-    /// <summary>
-    ///     Gets assemblies scanned for <see cref="T:AstQuerying.Queries.Configurations.QueryConfiguration`1" /> types and
-    ///     optional plugin operators/functions.
-    /// </summary>
-    public IList<Assembly> AssembliesToScan { get; } = new List<Assembly>();
-
     /// <summary>
     ///     Gets or sets the maximum allowed zero-based skip derived from <c>(page - 1) * size</c>.
     /// </summary>

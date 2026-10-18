@@ -31,7 +31,7 @@ public abstract class BaseFunction<T> : IFunction
     public object? GetValue(Type targetType)
     {
         if (!Converters.TryGetValue(targetType, out var convert))
-            throw new QueryConversionException($"{GetType().Name} does not support {targetType.Name}.");
+            throw new QueryConversionException($"{GetType().Name} does not support {targetType.Name}.", targetType);
 
         return convert(Input);
     }

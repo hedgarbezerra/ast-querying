@@ -1,10 +1,9 @@
 using System.Text.Json;
-using AstQuerying.Queries.Ast.ValueObjects;
-using AstQuerying.Queries.Filters.Contracts;
-using AstQuerying.Queries.Filters.Dtos;
 using AstQuerying.Queries.Ast.Parsing;
+using AstQuerying.Queries.Filters;
+using AstQuerying.Queries.Filters.Dtos;
 using AstQuerying.Queries.Tests.Support;
-using AstQuerying.Queries.Validation.Contracts;
+using AstQuerying.Queries.Validation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AstQuerying.Queries.Tests;
@@ -15,6 +14,7 @@ public sealed class FilterExpressionBuilderTests
     public void BuiltPredicateFiltersQueryablePersonsByNameContains()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var validator = sp.GetRequiredService<IQueryValidator>();
         var builder = sp.GetRequiredService<IFilterExpressionBuilder>();
         var dto = new FilterClauseDto
@@ -23,7 +23,7 @@ public sealed class FilterExpressionBuilderTests
             Operator = "contains",
             Value = JsonSerializer.SerializeToElement("ru")
         };
-        var node = QueryFilterParser.Parse(dto);
+        var node = parser.Parse(dto);
         validator.Validate(typeof(Person), node);
 
         var predicate = builder.Build<Person>(node).Compile();
@@ -43,6 +43,7 @@ public sealed class FilterExpressionBuilderTests
     public void BuiltPredicateCombinesAndClauses()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var validator = sp.GetRequiredService<IQueryValidator>();
         var builder = sp.GetRequiredService<IFilterExpressionBuilder>();
         var dto = new FilterClauseDto
@@ -63,7 +64,7 @@ public sealed class FilterExpressionBuilderTests
                 }
             ]
         };
-        var node = QueryFilterParser.Parse(dto);
+        var node = parser.Parse(dto);
         validator.Validate(typeof(Person), node);
 
         var predicate = builder.Build<Person>(node).Compile();
@@ -82,6 +83,7 @@ public sealed class FilterExpressionBuilderTests
     public void BuiltPredicateFiltersByLegalAgeFunctionOnAge()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var validator = sp.GetRequiredService<IQueryValidator>();
         var builder = sp.GetRequiredService<IFilterExpressionBuilder>();
         var dto = new FilterClauseDto
@@ -90,7 +92,7 @@ public sealed class FilterExpressionBuilderTests
             Operator = ">=",
             Value = JsonSerializer.SerializeToElement(new { function = "LegalAge" })
         };
-        var node = QueryFilterParser.Parse(dto);
+        var node = parser.Parse(dto);
         validator.Validate(typeof(Person), node);
 
         var predicate = builder.Build<Person>(node).Compile();
@@ -109,6 +111,7 @@ public sealed class FilterExpressionBuilderTests
     public void BuiltPredicateFiltersByMinimumWageFunctionOnSalary()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var validator = sp.GetRequiredService<IQueryValidator>();
         var builder = sp.GetRequiredService<IFilterExpressionBuilder>();
         var dto = new FilterClauseDto
@@ -117,7 +120,7 @@ public sealed class FilterExpressionBuilderTests
             Operator = ">=",
             Value = JsonSerializer.SerializeToElement(new { function = "MinimumWage" })
         };
-        var node = QueryFilterParser.Parse(dto);
+        var node = parser.Parse(dto);
         validator.Validate(typeof(Person), node);
 
         var predicate = builder.Build<Person>(node).Compile();

@@ -20,7 +20,7 @@ public sealed class ValueConverter : IValueConverter
         catch (Exception ex) when (ex is not QueryConversionException)
         {
             throw new QueryConversionException(
-                $"Cannot convert value for '{fieldPath ?? "?"}' to {targetType.Name}.", ex);
+                $"Cannot convert value for '{fieldPath ?? "?"}' to {targetType.Name}.", ex, targetType, rawValue);
         }
     }
 
@@ -32,7 +32,7 @@ public sealed class ValueConverter : IValueConverter
         if (rawValue is null || rawValue is DBNull)
             return nullableInner is not null ? null :
                 !targetType.IsValueType ? null :
-                throw new QueryConversionException("Null not allowed for non-nullable value type.");
+                throw new QueryConversionException("Null not allowed for non-nullable value type.", targetType, rawValue);
 
         if (nullableInner is not null && rawValue is string s && string.IsNullOrWhiteSpace(s))
             return null;

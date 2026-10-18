@@ -1,47 +1,37 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using AstQuerying.Queries.Common.Exceptions;
+using AstQuerying.Queries.Metadata;
 using AstQuerying.Queries.Metadata.ValueObjects;
-using AstQuerying.Queries.Registries;
 using AstQuerying.Queries.Sorting.Dtos;
 
 namespace AstQuerying.Queries.Sorting.Services;
 
 /// <summary>
-///     Default <see cref="ISortingKeyBuilder" /> using metadata sort flags and collection-aware key selectors.
+///     Default <see cref="ISortingKeyBuilder" /> using generated metadata and collection-aware key selectors.
 /// </summary>
 public sealed class SortingKeyBuilder : ISortingKeyBuilder
 {
-    private readonly IQueryRegistry _registry;
+    private readonly IEntityMetadataProvider _metadata;
 
     /// <summary>
     ///     Initializes a new instance of <see cref="SortingKeyBuilder" />.
     /// </summary>
-    /// <param name="registry">The query registry.</param>
-    public SortingKeyBuilder(IQueryRegistry registry)
+    /// <param name="metadata">The entity metadata provider.</param>
+    public SortingKeyBuilder(IEntityMetadataProvider metadata)
     {
-        _registry = registry;
+        _metadata = metadata;
     }
 
     /// <inheritdoc />
     public LambdaExpression Build<TEntity>(SortFieldDto field) where TEntity : class
     {
-        var meta = _registry.GetEntity(typeof(TEntity)) ??
-                   throw new QueryValidationException($"No query metadata for {typeof(TEntity).Name}.");
+        var entityType = typeof(TEntity);
+        var meta = _metadata.GetMetadata(entityType) ??
+                   throw new QueryEntityNotQueryableException(entityType);
 
-        var prop = meta.FindByPathOrAlias(field.Field) ??
-                   throw new QueryValidationException($"Unknown sort field '{field.Field}'.");
-
-        var descending = field.Direction == SortDirection.Descending;
-        if (descending)
-        {
-            if (!prop.AllowSortDescending)
-                throw new QueryValidationException($"Descending sort is not allowed for field '{field.Field}'.");
-        }
-        else if (!prop.AllowSortAscending)
-        {
-            throw new QueryValidationException($"Ascending sort is not allowed for field '{field.Field}'.");
-        }
+        var prop = meta.FindByPath(field.Field) ??
+                   throw new QueryUnknownFieldException(entityType, field.Field);
 
         var param = Expression.Parameter(typeof(TEntity), "e");
         var colIdx = prop.Segments.ToList().FindIndex(s => s.IsCollection);

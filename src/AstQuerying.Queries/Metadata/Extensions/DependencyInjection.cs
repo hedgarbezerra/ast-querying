@@ -10,13 +10,13 @@ namespace AstQuerying.Queries.Metadata.Extensions;
 public static class DependencyInjection
 {
     /// <summary>
-    ///     Registers <see cref="IQueryMetadataProvider" />.
+    ///     Registers <see cref="IEntityMetadataProvider" />.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <returns>The same <paramref name="services" /> instance for chaining.</returns>
-    public static IServiceCollection AddQueryMetadata(this IServiceCollection services)
+    public static IServiceCollection AddEntityMetadata(this IServiceCollection services)
     {
-        services.TryAddSingleton<IQueryMetadataProvider, RegistryQueryMetadataProvider>();
+        services.TryAddSingleton<IEntityMetadataProvider, GeneratedEntityMetadataProvider>();
         return services;
     }
 }

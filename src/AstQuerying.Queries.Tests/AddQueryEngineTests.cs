@@ -1,10 +1,9 @@
-using AstQuerying.Queries.Filters.Contracts;
-using AstQuerying.Queries.Functions.Contracts;
-using AstQuerying.Queries.Metadata.Contracts;
-using AstQuerying.Queries.Registry.Contracts;
-using AstQuerying.Queries.Registry.Implementations;
+using AstQuerying.Queries.Filters;
+using AstQuerying.Queries.Functions;
+using AstQuerying.Queries.Metadata;
+using AstQuerying.Queries.Registries;
 using AstQuerying.Queries.Tests.Support;
-using AstQuerying.Queries.Validation.Contracts;
+using AstQuerying.Queries.Validation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AstQuerying.Queries.Tests;
@@ -41,7 +40,7 @@ public sealed class AddQueryEngineTests
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
         var validator = sp.GetRequiredService<IQueryValidator>();
-        var operators = sp.GetServices<IFilterOperator>().Select(QueryOperatorsRegistry.GetKey).Distinct()
+        var operators = sp.GetServices<IFilterOperator>().Select(op => op.Name).Distinct()
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Assert.NotNull(validator);
@@ -53,7 +52,7 @@ public sealed class AddQueryEngineTests
     public void ResolvesEnumerableFunctionProvidersFromDi()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
-        var names = sp.GetServices<IFunction>().Select(QueryFunctionsRegistry.GetKey).Distinct()
+        var names = sp.GetServices<IFunction>().Select(fn => fn.Name).Distinct()
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Assert.Contains("Today", names);

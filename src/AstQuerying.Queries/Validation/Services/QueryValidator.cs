@@ -1,99 +1,115 @@
 using AstQuerying.Queries.Ast.ValueObjects;
 using AstQuerying.Queries.Common.Exceptions;
 using AstQuerying.Queries.Filters;
+using AstQuerying.Queries.Metadata;
 using AstQuerying.Queries.Metadata.ValueObjects;
 using AstQuerying.Queries.Registries;
 
 namespace AstQuerying.Queries.Validation.Services;
 
 /// <summary>
-///     Default <see cref="IQueryValidator" /> implementation using registry metadata and per-field allow lists.
+///     Default <see cref="IQueryValidator" /> implementation using generated metadata and type compatibility checks.
 /// </summary>
 public sealed class QueryValidator : IQueryValidator
 {
-    private readonly IQueryRegistry _registry;
+    private readonly IFunctionRegistry _functions;
+    private readonly IEntityMetadataProvider _metadata;
+    private readonly IOperatorRegistry _operators;
 
     /// <summary>
     ///     Initializes a new instance of <see cref="QueryValidator" />.
     /// </summary>
-    /// <param name="registry">The query registry.</param>
-    public QueryValidator(IQueryRegistry registry)
+    /// <param name="metadata">The entity metadata provider.</param>
+    /// <param name="operators">The operator registry.</param>
+    /// <param name="functions">The function registry.</param>
+    public QueryValidator(
+        IEntityMetadataProvider metadata,
+        IOperatorRegistry operators,
+        IFunctionRegistry functions)
     {
-        _registry = registry;
+        _metadata = metadata;
+        _operators = operators;
+        _functions = functions;
     }
 
     /// <inheritdoc />
     public void Validate(Type entityType, QueryNode root)
     {
-        var meta = _registry.GetEntity(entityType) ??
-                   throw new QueryValidationException($"No query metadata registered for entity {entityType.Name}.");
+        var meta = _metadata.GetMetadata(entityType) ??
+                   throw new QueryEntityNotQueryableException(entityType);
 
-        ValidateNode(root, meta);
+        ValidateNode(root, entityType, meta);
     }
 
-    private void ValidateNode(QueryNode node, EntityMetadata meta)
+    private void ValidateNode(QueryNode node, Type entityType, EntityMetadata meta)
     {
         switch (node)
         {
             case AndNode a:
                 foreach (var c in a.Children)
-                    ValidateNode(c, meta);
+                    ValidateNode(c, entityType, meta);
                 break;
             case OrNode o:
                 foreach (var c in o.Children)
-                    ValidateNode(c, meta);
+                    ValidateNode(c, entityType, meta);
                 break;
             case NotNode n:
-                ValidateNode(n.Child, meta);
+                ValidateNode(n.Child, entityType, meta);
                 break;
             case ComparisonNode cmp:
-                ValidateComparison(cmp, meta);
+                ValidateComparison(cmp, entityType, meta);
                 break;
             default:
-                throw new QueryValidationException("Unknown query node.");
+                throw new QueryParseException("Unknown query node.", ClauseKind.UnknownNode);
         }
     }
 
-    private void ValidateComparison(ComparisonNode cmp, EntityMetadata meta)
+    private void ValidateComparison(ComparisonNode cmp, Type entityType, EntityMetadata meta)
     {
-        var prop = meta.FindByPathOrAlias(cmp.FieldPath) ??
-                   throw new QueryValidationException($"Unknown field '{cmp.FieldPath}'.");
+        var prop = meta.FindByPath(cmp.FieldPath) ??
+                   throw new QueryUnknownFieldException(entityType, cmp.FieldPath);
 
         var opKey = cmp.OperatorName;
-        if (!_registry.Operators.TryGetValue(opKey, out var op))
-            throw new QueryValidationException($"Unknown operator '{opKey}'.");
-
-        if (prop.AllowedOperators is not null &&
-            !prop.AllowedOperators.Contains(opKey))
-            throw new QueryValidationException($"Operator '{opKey}' is not allowed for field '{cmp.FieldPath}'.");
+        if (!_operators.TryGetByName(opKey, out var op))
+            throw new QueryUnknownOperatorException(opKey, cmp.FieldPath);
 
         switch (cmp)
         {
             case MultiValueComparisonNode mv:
-                ValidateMultiValueComparison(mv, prop, op, opKey);
+                ValidateMultiValueComparison(mv, entityType, prop, op!, opKey);
                 return;
             case SingleValueComparisonNode sv:
-                ValidateSingleValueComparison(sv, prop, op, opKey);
+                ValidateSingleValueComparison(sv, entityType, prop, op!, opKey);
                 return;
             default:
-                throw new QueryValidationException("Unknown comparison node.");
+                throw new QueryParseException("Unknown comparison node.", ClauseKind.UnknownNode);
         }
     }
 
-    private void ValidateMultiValueComparison(MultiValueComparisonNode cmp, PropertyMetadata prop, IFilterOperator op,
+    private void ValidateMultiValueComparison(
+        MultiValueComparisonNode cmp,
+        Type entityType,
+        PropertyMetadata prop,
+        IFilterOperator op,
         string opKey)
     {
         if (op is not IMultiValueFilterOperator)
-            throw new QueryValidationException($"Operator '{opKey}' does not accept multiple values.");
+            throw new QueryOperatorMismatchException(opKey, cmp.FieldPath, OperatorMismatchKind.RequiresMultipleValues,
+                $"Operator '{opKey}' does not accept multiple values.", prop.LeafType);
 
         if (cmp.Values.Count == 0)
-            throw new QueryValidationException($"Operator '{opKey}' requires values.");
+            throw new QueryOperatorMismatchException(opKey, cmp.FieldPath, OperatorMismatchKind.RequiresMultipleValues,
+                $"Operator '{opKey}' requires values.", prop.LeafType);
 
         foreach (var v in cmp.Values)
-            ValidateValueNode(v, prop);
+            ValidateValueNode(v, entityType, prop);
     }
 
-    private void ValidateSingleValueComparison(SingleValueComparisonNode cmp, PropertyMetadata prop, IFilterOperator op,
+    private void ValidateSingleValueComparison(
+        SingleValueComparisonNode cmp,
+        Type entityType,
+        PropertyMetadata prop,
+        IFilterOperator op,
         string opKey)
     {
         var leaf = Nullable.GetUnderlyingType(prop.LeafType) ?? prop.LeafType;
@@ -101,34 +117,39 @@ public sealed class QueryValidator : IQueryValidator
         if (op is IMemberOnlyFilterOperator)
         {
             if (!prop.LeafType.IsClass && Nullable.GetUnderlyingType(prop.LeafType) is null)
-                throw new QueryValidationException(
-                    $"Operator '{opKey}' is not valid for non-nullable value type '{prop.Path}'.");
+                throw new QueryOperatorMismatchException(opKey, prop.Path, OperatorMismatchKind.MemberOnlyOnValueType,
+                    $"Operator '{opKey}' is not valid for non-nullable value type '{prop.Path}'.", prop.LeafType);
 
             return;
         }
 
         if (op is IMultiValueFilterOperator)
-            throw new QueryValidationException($"Operator '{opKey}' requires multiple values.");
+            throw new QueryOperatorMismatchException(opKey, cmp.FieldPath, OperatorMismatchKind.RequiresMultipleValues,
+                $"Operator '{opKey}' requires multiple values.", prop.LeafType);
 
         if (op is not ISingleValueFilterOperator)
-            throw new QueryValidationException($"Operator '{opKey}' is not supported.");
+            throw new QueryOperatorMismatchException(opKey, cmp.FieldPath, OperatorMismatchKind.NotSupported,
+                $"Operator '{opKey}' is not supported.", prop.LeafType);
 
         if (IsStringTextOperator(opKey))
         {
             if (leaf != typeof(string))
-                throw new QueryValidationException($"Operator '{opKey}' requires a string field at '{prop.Path}'.");
+                throw new QueryOperatorMismatchException(opKey, prop.Path, OperatorMismatchKind.TextOperatorRequiresString,
+                    $"Operator '{opKey}' requires a string field at '{prop.Path}'.", prop.LeafType);
 
             if (cmp.Value is null)
-                throw new QueryValidationException($"Operator '{opKey}' requires value.");
+                throw new QueryOperatorMismatchException(opKey, cmp.FieldPath, OperatorMismatchKind.RequiresValue,
+                    $"Operator '{opKey}' requires value.", prop.LeafType);
 
-            ValidateValueNode(cmp.Value, prop);
+            ValidateValueNode(cmp.Value, entityType, prop);
             return;
         }
 
         if (cmp.Value is null)
-            throw new QueryValidationException($"Operator '{opKey}' requires value.");
+            throw new QueryOperatorMismatchException(opKey, cmp.FieldPath, OperatorMismatchKind.RequiresValue,
+                $"Operator '{opKey}' requires value.", prop.LeafType);
 
-        ValidateValueNode(cmp.Value, prop);
+        ValidateValueNode(cmp.Value, entityType, prop);
     }
 
     private static bool IsStringTextOperator(string opKey)
@@ -138,25 +159,19 @@ public sealed class QueryValidator : IQueryValidator
                string.Equals(opKey, "endsWith", StringComparison.OrdinalIgnoreCase);
     }
 
-    private void ValidateValueNode(ValueNode node, PropertyMetadata prop)
+    private void ValidateValueNode(ValueNode node, Type entityType, PropertyMetadata prop)
     {
         if (node is FunctionValueNode f)
         {
-            if (!_registry.Functions.TryGetValue(f.FunctionName, out var provider))
-                throw new QueryValidationException($"Unknown function '{f.FunctionName}'.");
+            if (!_functions.TryGetByName(f.FunctionName, out var provider))
+                throw new QueryUnknownFunctionException(f.FunctionName, prop.Path);
 
-            if (prop.AllowedFunctions is not null &&
-                !prop.AllowedFunctions.Contains(f.FunctionName))
-                throw new QueryValidationException(
-                    $"Function '{f.FunctionName}' is not enabled for field '{prop.Path}'.");
-
-            if (!provider.SupportedTypes.Any(st =>
+            if (!provider!.SupportedTypes.Any(st =>
                 {
                     var propLeafType = Nullable.GetUnderlyingType(prop.LeafType) ?? prop.LeafType;
                     return st.IsAssignableFrom(prop.LeafType) || st == propLeafType;
                 }))
-                throw new QueryValidationException(
-                    $"Function '{f.FunctionName}' cannot be applied to field '{prop.Path}' of type {prop.LeafType.Name}.");
+                throw new QueryFunctionMismatchException(f.FunctionName, prop.Path, prop.LeafType);
         }
     }
 }

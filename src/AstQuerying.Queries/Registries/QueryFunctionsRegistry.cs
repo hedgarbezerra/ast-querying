@@ -24,23 +24,13 @@ public sealed class QueryFunctionsRegistry : IFunctionRegistry
         {
             var name = fn.Name;
             if (!byName.TryAdd(name, fn))
-                throw new QueryConfigurationException(
-                    $"Duplicate function name '{name}'.",
-                    new QueryConfigurationDiagnostics
-                    {
-                        Kind = QueryConfigurationFailureKind.DuplicateFunctionName,
-                        ConflictingName = name
-                    });
+                throw new QueryRegistrationException(name, RegistrationKind.Function,
+                    $"Duplicate function name '{name}'.");
 
             var type = fn.GetType();
             if (!byType.TryAdd(type, fn))
-                throw new QueryConfigurationException(
-                    $"Duplicate function implementation type '{type.FullName}'.",
-                    new QueryConfigurationDiagnostics
-                    {
-                        Kind = QueryConfigurationFailureKind.DuplicateFunctionName,
-                        ConflictingName = name
-                    });
+                throw new QueryRegistrationException(name, RegistrationKind.Function,
+                    $"Duplicate function implementation type '{type.FullName}'.");
         }
 
         ByName = byName.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);

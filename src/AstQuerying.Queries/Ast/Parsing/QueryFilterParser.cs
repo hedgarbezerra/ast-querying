@@ -8,7 +8,7 @@ using AstQuerying.Queries.Registries;
 namespace AstQuerying.Queries.Ast.Parsing;
 
 /// <inheritdoc />
-public sealed class QueryFilterParser(IQueryRegistry registry) : IQueryFilterParser
+public sealed class QueryFilterParser(IOperatorRegistry operators) : IQueryFilterParser
 {
     /// <inheritdoc />
     public QueryNode Parse(FilterClauseDto root)
@@ -37,36 +37,40 @@ public sealed class QueryFilterParser(IQueryRegistry registry) : IQueryFilterPar
         {
             var op = root.Operator;
             if (string.IsNullOrWhiteSpace(op))
-                throw new QueryValidationException($"Filter for field '{root.Field}' is missing operator.");
+                throw new QueryParseException($"Filter for field '{root.Field}' is missing operator.",
+                    ClauseKind.MissingOperator);
 
-            if (!registry.Operators.TryGetValue(op, out var impl))
-                throw new QueryValidationException($"Unknown filter operator '{op}' for field '{root.Field}'.");
+            if (!operators.TryGetByName(op, out var impl))
+                throw new QueryUnknownOperatorException(op, root.Field);
 
-            var canonicalKey = impl.Name;
+            var canonicalKey = impl!.Name;
 
             switch (impl)
             {
                 case IMultiValueFilterOperator:
                     if (root.Values is null || root.Values.Count == 0)
-                        throw new QueryValidationException(
-                            $"Operator '{canonicalKey}' requires a non-empty values array.");
+                        throw new QueryParseException(
+                            $"Operator '{canonicalKey}' requires a non-empty values array.",
+                            ClauseKind.MissingValue);
                     var nodes = root.Values.Select(ParseValueElement).ToList();
                     return new MultiValueComparisonNode(root.Field, canonicalKey, nodes);
                 case IMemberOnlyFilterOperator:
                     return new SingleValueComparisonNode(root.Field, canonicalKey, null);
                 case ISingleValueFilterOperator:
                     if (root.Value is null)
-                        throw new QueryValidationException($"Operator '{canonicalKey}' requires value.");
+                        throw new QueryParseException($"Operator '{canonicalKey}' requires value.",
+                            ClauseKind.MissingValue);
 
                     return new SingleValueComparisonNode(root.Field, canonicalKey,
                         ParseValueElement(root.Value.Value));
                 default:
-                    throw new QueryValidationException(
+                    throw new QueryOperatorMismatchException(canonicalKey, root.Field, OperatorMismatchKind.NotSupported,
                         $"Operator '{canonicalKey}' for field '{root.Field}' is not supported.");
             }
         }
 
-        throw new QueryValidationException("Invalid filter clause: expected field, and, or, or not.");
+        throw new QueryParseException("Invalid filter clause: expected field, and, or, or not.",
+            ClauseKind.InvalidClause);
     }
 
     private static ValueNode ParseValueElement(JsonElement el)

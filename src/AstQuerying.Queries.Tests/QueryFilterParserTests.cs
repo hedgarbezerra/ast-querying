@@ -1,8 +1,10 @@
 using System.Text.Json;
+using AstQuerying.Queries.Ast.Parsing;
 using AstQuerying.Queries.Ast.ValueObjects;
 using AstQuerying.Queries.Common.Exceptions;
 using AstQuerying.Queries.Filters.Dtos;
-using AstQuerying.Queries.Ast.Parsing;
+using AstQuerying.Queries.Tests.Support;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AstQuerying.Queries.Tests;
 
@@ -11,6 +13,8 @@ public sealed class QueryFilterParserTests
     [Fact]
     public void ParsesAndTreeWithTwoComparisons()
     {
+        using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var root = new FilterClauseDto
         {
             And =
@@ -30,7 +34,7 @@ public sealed class QueryFilterParserTests
             ]
         };
 
-        var node = QueryFilterParser.Parse(root);
+        var node = parser.Parse(root);
         var and = Assert.IsType<AndNode>(node);
         Assert.Equal(2, and.Children.Count);
         var c0 = Assert.IsType<SingleValueComparisonNode>(and.Children[0]);
@@ -45,6 +49,8 @@ public sealed class QueryFilterParserTests
     [Fact]
     public void ParsesNotWithNestedComparison()
     {
+        using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var root = new FilterClauseDto
         {
             Not = new FilterClauseDto
@@ -55,7 +61,7 @@ public sealed class QueryFilterParserTests
             }
         };
 
-        var node = QueryFilterParser.Parse(root);
+        var node = parser.Parse(root);
         var not = Assert.IsType<NotNode>(node);
         var inner = Assert.IsType<SingleValueComparisonNode>(not.Child);
         Assert.Equal("Id", inner.FieldPath);
@@ -64,6 +70,8 @@ public sealed class QueryFilterParserTests
     [Fact]
     public void ParsesInOperatorWithMultipleValues()
     {
+        using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var root = new FilterClauseDto
         {
             Field = "Id",
@@ -75,7 +83,7 @@ public sealed class QueryFilterParserTests
             ]
         };
 
-        var node = QueryFilterParser.Parse(root);
+        var node = parser.Parse(root);
         var cmp = Assert.IsType<MultiValueComparisonNode>(node);
         Assert.Equal("in", cmp.OperatorName);
         Assert.Equal(2, cmp.Values.Count);
@@ -84,23 +92,29 @@ public sealed class QueryFilterParserTests
     [Fact]
     public void MissingOperatorThrowsQueryValidationException()
     {
+        using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var root = new FilterClauseDto { Field = "Name", Value = JsonSerializer.SerializeToElement("x") };
 
-        var ex = Assert.Throws<QueryValidationException>(() => QueryFilterParser.Parse(root));
+        var ex = Assert.Throws<QueryValidationException>(() => parser.Parse(root));
         Assert.Contains("operator", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void EmptyClauseThrowsQueryValidationException()
     {
+        using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var root = new FilterClauseDto();
 
-        Assert.Throws<QueryValidationException>(() => QueryFilterParser.Parse(root));
+        Assert.Throws<QueryValidationException>(() => parser.Parse(root));
     }
 
     [Fact]
     public void UnknownOperatorThrowsQueryValidationException()
     {
+        using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var root = new FilterClauseDto
         {
             Field = "Name",
@@ -108,7 +122,7 @@ public sealed class QueryFilterParserTests
             Value = JsonSerializer.SerializeToElement("x")
         };
 
-        var ex = Assert.Throws<QueryValidationException>(() => QueryFilterParser.Parse(root));
+        var ex = Assert.Throws<QueryValidationException>(() => parser.Parse(root));
         Assert.Contains("Unknown filter operator", ex.Message, StringComparison.Ordinal);
     }
 }

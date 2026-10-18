@@ -38,8 +38,17 @@ public class QueryException : Exception
     public int StatusCode { get; }
 
     /// <summary>
-    ///     Gets the stable failure category for this exception type (for example a constant exposed on
-    ///     <see cref="QueryValidationException" />).
+    ///     Gets the stable failure category for this exception type.
     /// </summary>
     public string Reason { get; }
+
+    /// <summary>
+    ///     Writes type-specific context into RFC 7807 Problem Details extensions.
+    /// </summary>
+    /// <param name="extensions">The extension dictionary to populate.</param>
+    protected virtual void WriteExtensions(IDictionary<string, object?> extensions)
+    {
+    }
+
+    internal void WriteExtensionsInternal(IDictionary<string, object?> extensions) => WriteExtensions(extensions);
 }

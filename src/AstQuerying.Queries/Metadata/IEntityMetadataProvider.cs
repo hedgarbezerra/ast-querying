@@ -5,7 +5,7 @@ namespace AstQuerying.Queries.Metadata;
 /// <summary>
 ///     Resolves <see cref="EntityMetadata" /> for entity CLR types at runtime.
 /// </summary>
-public interface IQueryMetadataProvider
+public interface IEntityMetadataProvider
 {
     /// <summary>
     ///     Gets metadata for the given entity type, or <see langword="null" /> if it is not registered.

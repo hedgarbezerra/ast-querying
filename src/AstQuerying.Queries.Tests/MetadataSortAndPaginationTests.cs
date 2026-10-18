@@ -1,7 +1,7 @@
 using AstQuerying.Queries.Common.Exceptions;
-using AstQuerying.Queries.Configuration.DependencyInjection;
-using AstQuerying.Queries.Metadata.Contracts;
-using AstQuerying.Queries.Sorting.Contracts;
+using AstQuerying.Queries.Configurations;
+using AstQuerying.Queries.Metadata;
+using AstQuerying.Queries.Sorting;
 using AstQuerying.Queries.Sorting.Dtos;
 using AstQuerying.Queries.Tests.Support;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,7 +52,8 @@ public sealed class MetadataSortAndPaginationTests
         var source = Array.Empty<Person>().AsQueryable();
 
         Assert.Throws<QueryValidationException>(() =>
-            sortingService.Apply(source, new List<SortFieldDto> { new() { Field = "Missing", Direction = SortDirection.Ascending } }));
+            sortingService.Apply(source,
+                new List<SortFieldDto> { new() { Field = "Missing", Direction = SortDirection.Ascending } }));
     }
 
     [Fact]

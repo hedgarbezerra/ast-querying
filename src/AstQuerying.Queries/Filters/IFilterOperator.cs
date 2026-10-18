@@ -1,7 +1,7 @@
 namespace AstQuerying.Queries.Filters;
 
 /// <summary>
-///     Filter operator registered in <see cref="T:AstQuerying.Queries.Registries.IQueryRegistry.Operators" />.
+///     Filter operator registered in <see cref="T:AstQuerying.Queries.Registries.IOperatorRegistry" />.
 /// </summary>
 public interface IFilterOperator
 {

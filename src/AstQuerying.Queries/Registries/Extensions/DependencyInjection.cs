@@ -1,4 +1,3 @@
-using AstQuerying.Queries.Configurations;
 using AstQuerying.Queries.Filters;
 using AstQuerying.Queries.Functions;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,22 +21,6 @@ public static class DependencyInjection
             new QueryOperatorsRegistry(sp.GetServices<IFilterOperator>()));
         services.TryAddSingleton<IFunctionRegistry>(sp =>
             new QueryFunctionsRegistry(sp.GetServices<IFunction>()));
-
-        return services;
-    }
-
-    /// <summary>
-    ///     Registers <see cref="IQueryRegistry" /> built from <paramref name="options" />.
-    /// </summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="options">Query engine options used to scan configurations.</param>
-    /// <returns>The same <paramref name="services" /> instance for chaining.</returns>
-    public static IServiceCollection AddQueryRegistry(this IServiceCollection services, QueryEngineOptions options)
-    {
-        services.AddSingleton<IQueryRegistry>(sp => QueryRegistryBuilder.Build(
-            options,
-            sp.GetRequiredService<IOperatorRegistry>(),
-            sp.GetRequiredService<IFunctionRegistry>()));
 
         return services;
     }

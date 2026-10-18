@@ -24,23 +24,13 @@ public sealed class QueryOperatorsRegistry : IOperatorRegistry
         {
             var name = op.Name;
             if (!byName.TryAdd(name, op))
-                throw new QueryConfigurationException(
-                    $"Duplicate filter operator name '{name}'.",
-                    new QueryConfigurationDiagnostics
-                    {
-                        Kind = QueryConfigurationFailureKind.DuplicateFilterOperatorName,
-                        ConflictingName = name
-                    });
+                throw new QueryRegistrationException(name, RegistrationKind.Operator,
+                    $"Duplicate filter operator name '{name}'.");
 
             var type = op.GetType();
             if (!byType.TryAdd(type, op))
-                throw new QueryConfigurationException(
-                    $"Duplicate filter operator implementation type '{type.FullName}'.",
-                    new QueryConfigurationDiagnostics
-                    {
-                        Kind = QueryConfigurationFailureKind.DuplicateFilterOperatorName,
-                        ConflictingName = name
-                    });
+                throw new QueryRegistrationException(name, RegistrationKind.Operator,
+                    $"Duplicate filter operator implementation type '{type.FullName}'.");
         }
 
         ByName = byName.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);

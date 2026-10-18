@@ -3,7 +3,8 @@ using System.Text.Json.Serialization;
 namespace AstQuerying.Queries.Sorting.Dtos;
 
 /// <summary>
-///     Describes a single sort field and direction in API payloads.
+///     Describes a single sort field and direction in API payloads. In a sort list, index 0 maps to
+///     <c>OrderBy</c> and later indices map to <c>ThenBy</c> in the same order.
 /// </summary>
 public sealed class SortFieldDto
 {

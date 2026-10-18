@@ -1,36 +1,37 @@
 using System.Linq.Expressions;
 using AstQuerying.Queries.Common.Exceptions;
-using AstQuerying.Queries.Registries;
+using AstQuerying.Queries.Metadata;
 
 namespace AstQuerying.Queries.Resolving.Services;
 
 /// <summary>
-///     Resolves configured paths or aliases to member-access expressions for a registered entity type.
+///     Resolves configured paths to member-access expressions for a registered entity type.
 /// </summary>
 public sealed class PropertyResolver : IPropertyResolver
 {
-    private readonly IQueryRegistry _registry;
+    private readonly IEntityMetadataProvider _metadata;
 
     /// <summary>
     ///     Initializes a new instance of <see cref="PropertyResolver" />.
     /// </summary>
-    /// <param name="registry">The query registry.</param>
-    public PropertyResolver(IQueryRegistry registry)
+    /// <param name="metadata">The entity metadata provider.</param>
+    public PropertyResolver(IEntityMetadataProvider metadata)
     {
-        _registry = registry;
+        _metadata = metadata;
     }
 
     /// <inheritdoc />
-    public Expression Resolve<TEntity>(string pathOrAlias) where TEntity : class
+    public Expression Resolve<TEntity>(string path) where TEntity : class
     {
-        var meta = _registry.GetEntity(typeof(TEntity)) ??
-                   throw new QueryValidationException($"No query metadata for {typeof(TEntity).Name}.");
+        var entityType = typeof(TEntity);
+        var meta = _metadata.GetMetadata(entityType) ??
+                   throw new QueryEntityNotQueryableException(entityType);
 
-        var prop = meta.FindByPathOrAlias(pathOrAlias) ??
-                   throw new QueryValidationException($"Unknown field '{pathOrAlias}'.");
+        var prop = meta.FindByPath(path) ??
+                   throw new QueryUnknownFieldException(entityType, path);
 
         if (prop.Segments.Any(s => s.IsCollection))
-            throw new QueryValidationException($"Property resolver does not support collection path '{prop.Path}'.");
+            throw new QueryUnsupportedPathException(entityType, prop.Path, "collection paths are not supported");
 
         var param = Expression.Parameter(typeof(TEntity), "e");
         Expression cur = param;

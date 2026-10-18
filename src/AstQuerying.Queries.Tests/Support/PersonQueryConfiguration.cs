@@ -1,5 +1,4 @@
-using AstQuerying.Queries.Configuration;
-using AstQuerying.Queries.Filters.Implementations;
+using AstQuerying.Queries.Configurations;
 using AstQuerying.Queries.Filters.Operators;
 using AstQuerying.Queries.Sorting.Dtos;
 
@@ -12,7 +11,7 @@ public sealed class PersonQueryConfiguration : QueryConfiguration<Person>
         DefaultSorting(new SortFieldDto { Field = "Name", Direction = SortDirection.Ascending });
 
         RuleFor(p => p.Id)
-            .Filtering(f => f.Operators(o => 
+            .Filtering(f => f.Operators(o =>
                 o.Allow<EqualOperator>()));
         RuleFor(p => p.Name)
             .Filtering(f => f.Operators(o =>

@@ -12,7 +12,7 @@ public sealed class EntityMetadata
     ///     Initializes a new instance of <see cref="EntityMetadata" />.
     /// </summary>
     /// <param name="clrType">The entity CLR type.</param>
-    /// <param name="properties">Configured property rules.</param>
+    /// <param name="properties">Queryable property paths.</param>
     /// <param name="defaultSort">Optional default sort applied when the client sends none.</param>
     /// <param name="defaultFilter">Optional default filter used when the client omits a filter in the query pipeline.</param>
     public EntityMetadata(
@@ -33,7 +33,7 @@ public sealed class EntityMetadata
     public Type ClrType { get; }
 
     /// <summary>
-    ///     Gets all configured properties for filtering and sorting.
+    ///     Gets all queryable properties for filtering and sorting.
     /// </summary>
     public IReadOnlyList<PropertyMetadata> Properties { get; }
 
@@ -48,17 +48,15 @@ public sealed class EntityMetadata
     public FilterClauseDto? DefaultFilter { get; }
 
     /// <summary>
-    ///     Finds metadata by exact path or configured alias (case-insensitive).
+    ///     Finds metadata by path (case-insensitive).
     /// </summary>
-    /// <param name="key">The path or alias from the client.</param>
+    /// <param name="path">The path from the client.</param>
     /// <returns>The matching <see cref="PropertyMetadata" />, or <see langword="null" />.</returns>
-    public PropertyMetadata? FindByPathOrAlias(string key)
+    public PropertyMetadata? FindByPath(string path)
     {
         foreach (var p in Properties)
         {
-            if (string.Equals(p.Path, key, StringComparison.OrdinalIgnoreCase))
-                return p;
-            if (p.Alias is not null && string.Equals(p.Alias, key, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(p.Path, path, StringComparison.OrdinalIgnoreCase))
                 return p;
         }
 

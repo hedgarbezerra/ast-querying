@@ -1,5 +1,5 @@
 using System.Text.Json;
-using AstQuerying.Queries.Common.Pipeline.Contracts;
+using AstQuerying.Queries.Common.Pipeline;
 using AstQuerying.Queries.Filters.Dtos;
 using AstQuerying.Queries.Sorting.Dtos;
 using AstQuerying.Queries.Tests.Support;

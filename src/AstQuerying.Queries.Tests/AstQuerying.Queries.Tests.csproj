@@ -16,7 +16,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\AstQuerying.Queries\AstQuerying.Queries.csproj" />
+        <ProjectReference Include="..\AstQuerying.Queries\AstQuerying.Queries.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

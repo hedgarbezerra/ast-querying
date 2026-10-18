@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using AstQuerying.Queries.Ast.ValueObjects;
 using AstQuerying.Queries.Common.Exceptions;
+using AstQuerying.Queries.Metadata;
 using AstQuerying.Queries.Metadata.ValueObjects;
 using AstQuerying.Queries.Registries;
 
@@ -14,51 +15,68 @@ namespace AstQuerying.Queries.Filters.Services;
 public sealed class FilterExpressionBuilder : IFilterExpressionBuilder
 {
     private readonly IValueConverter _converter;
-    private readonly IQueryRegistry _registry;
+    private readonly IFunctionRegistry _functions;
+    private readonly IEntityMetadataProvider _metadata;
+    private readonly IOperatorRegistry _operators;
 
     /// <summary>
     ///     Initializes a new instance of <see cref="FilterExpressionBuilder" />.
     /// </summary>
-    /// <param name="registry">Registry providing metadata, operators, and functions.</param>
+    /// <param name="metadata">Entity metadata provider.</param>
+    /// <param name="operators">Operator registry.</param>
+    /// <param name="functions">Function registry.</param>
     /// <param name="converter">Literal value converter.</param>
-    public FilterExpressionBuilder(IQueryRegistry registry, IValueConverter converter)
+    public FilterExpressionBuilder(
+        IEntityMetadataProvider metadata,
+        IOperatorRegistry operators,
+        IFunctionRegistry functions,
+        IValueConverter converter)
     {
-        _registry = registry;
+        _metadata = metadata;
+        _operators = operators;
+        _functions = functions;
         _converter = converter;
     }
 
     /// <inheritdoc />
     public Expression<Func<TEntity, bool>> Build<TEntity>(QueryNode root) where TEntity : class
     {
-        var meta = _registry.GetEntity(typeof(TEntity)) ??
-                   throw new QueryValidationException($"No query metadata for {typeof(TEntity).Name}.");
+        var entityType = typeof(TEntity);
+        var meta = _metadata.GetMetadata(entityType) ??
+                   throw new QueryEntityNotQueryableException(entityType);
 
         var param = Expression.Parameter(typeof(TEntity), "e");
-        var body = BuildNode(param, meta, root);
+        var body = BuildNode(entityType, param, meta, root);
         return Expression.Lambda<Func<TEntity, bool>>(body, param);
     }
 
-    private Expression BuildNode(ParameterExpression root, EntityMetadata meta, QueryNode node)
+    private Expression BuildNode(Type entityType, ParameterExpression root, EntityMetadata meta, QueryNode node)
     {
         return node switch
         {
             AndNode a when a.Children.Count == 0 => Expression.Constant(true),
-            AndNode a => a.Children.Select(c => BuildNode(root, meta, c)).Aggregate((x, y) => Expression.AndAlso(x, y)),
+            AndNode a => a.Children.Select(c => BuildNode(entityType, root, meta, c))
+                .Aggregate((x, y) => Expression.AndAlso(x, y)),
             OrNode o when o.Children.Count == 0 => Expression.Constant(false),
-            OrNode o => o.Children.Select(c => BuildNode(root, meta, c)).Aggregate((x, y) => Expression.OrElse(x, y)),
-            NotNode n => Expression.Not(BuildNode(root, meta, n.Child)),
-            ComparisonNode cmp => BuildComparison(root, meta, cmp),
-            _ => throw new QueryValidationException("Unsupported node.")
+            OrNode o => o.Children.Select(c => BuildNode(entityType, root, meta, c))
+                .Aggregate((x, y) => Expression.OrElse(x, y)),
+            NotNode n => Expression.Not(BuildNode(entityType, root, meta, n.Child)),
+            ComparisonNode cmp => BuildComparison(entityType, root, meta, cmp),
+            _ => throw new QueryParseException("Unsupported node.", ClauseKind.UnknownNode)
         };
     }
 
-    private Expression BuildComparison(ParameterExpression root, EntityMetadata meta, ComparisonNode cmp)
+    private Expression BuildComparison(
+        Type entityType,
+        ParameterExpression root,
+        EntityMetadata meta,
+        ComparisonNode cmp)
     {
-        var prop = meta.FindByPathOrAlias(cmp.FieldPath) ??
-                   throw new QueryValidationException($"Unknown field '{cmp.FieldPath}'.");
+        var prop = meta.FindByPath(cmp.FieldPath) ??
+                   throw new QueryUnknownFieldException(entityType, cmp.FieldPath);
 
-        if (!_registry.Operators.TryGetValue(cmp.OperatorName, out var op))
-            throw new QueryValidationException($"Unknown operator '{cmp.OperatorName}'.");
+        if (!_operators.TryGetByName(cmp.OperatorName, out var op))
+            throw new QueryUnknownOperatorException(cmp.OperatorName, cmp.FieldPath);
 
         var colIdx = prop.Segments.ToList().FindIndex(s => s.IsCollection);
 
@@ -70,22 +88,27 @@ public sealed class FilterExpressionBuilder : IFilterExpressionBuilder
             if (op is IMultiValueFilterOperator multi)
             {
                 if (cmp is not MultiValueComparisonNode mv)
-                    throw new QueryValidationException($"Operator '{cmp.OperatorName}' requires multiple values.");
+                    throw new QueryOperatorMismatchException(cmp.OperatorName, cmp.FieldPath,
+                        OperatorMismatchKind.RequiresMultipleValues,
+                        $"Operator '{cmp.OperatorName}' requires multiple values.", prop.LeafType);
 
-                return multi.CreateExpression(leaf, BuildMultiValueExpressions(prop, mv.Values, cmp.OperatorName));
+                return multi.CreateExpression(leaf, BuildMultiValueExpressions(entityType, prop, mv.Values, cmp.OperatorName));
             }
 
             if (op is ISingleValueFilterOperator singleOp)
             {
                 if (cmp is not SingleValueComparisonNode sv || sv.Value is null)
-                    throw new QueryValidationException($"Operator '{cmp.OperatorName}' requires value.");
+                    throw new QueryOperatorMismatchException(cmp.OperatorName, cmp.FieldPath,
+                        OperatorMismatchKind.RequiresValue,
+                        $"Operator '{cmp.OperatorName}' requires value.", prop.LeafType);
 
                 var val = ResolveValueNode(sv.Value, prop.LeafType, prop.Path);
                 var rhs = Expression.Constant(val, prop.LeafType);
                 return singleOp.CreateExpression(leaf, rhs);
             }
 
-            throw new QueryValidationException($"Operator '{cmp.OperatorName}' is not supported.");
+            throw new QueryOperatorMismatchException(cmp.OperatorName, cmp.FieldPath, OperatorMismatchKind.NotSupported,
+                $"Operator '{cmp.OperatorName}' is not supported.", prop.LeafType);
         }
 
         if (colIdx < 0)
@@ -103,11 +126,15 @@ public sealed class FilterExpressionBuilder : IFilterExpressionBuilder
         return Expression.Call(anyMi, collectionExpr, lambda);
     }
 
-    private IReadOnlyList<Expression> BuildMultiValueExpressions(PropertyMetadata prop, IReadOnlyList<ValueNode> values,
+    private IReadOnlyList<Expression> BuildMultiValueExpressions(
+        Type entityType,
+        PropertyMetadata prop,
+        IReadOnlyList<ValueNode> values,
         string operatorName)
     {
         if (values.Count == 0)
-            throw new QueryValidationException($"Operator '{operatorName}' requires values.");
+            throw new QueryOperatorMismatchException(operatorName, prop.Path, OperatorMismatchKind.RequiresMultipleValues,
+                $"Operator '{operatorName}' requires values.", prop.LeafType);
 
         var target = Nullable.GetUnderlyingType(prop.LeafType) ?? prop.LeafType;
         var list = new List<Expression>();
@@ -123,16 +150,16 @@ public sealed class FilterExpressionBuilder : IFilterExpressionBuilder
         {
             ConstantValueNode c => _converter.ConvertToType(c.Raw, leafType, path),
             FunctionValueNode f => ResolveFunction(f.FunctionName, leafType),
-            _ => throw new QueryValidationException("Unsupported value node.")
+            _ => throw new QueryParseException("Unsupported value node.", ClauseKind.UnsupportedValueNode)
         };
     }
 
     private object? ResolveFunction(string name, Type leafType)
     {
-        if (!_registry.Functions.TryGetValue(name, out var provider))
-            throw new QueryValidationException($"Unknown function '{name}'.");
+        if (!_functions.TryGetByName(name, out var provider))
+            throw new QueryUnknownFunctionException(name);
 
-        return provider.GetValue(leafType);
+        return provider!.GetValue(leafType);
     }
 
     private static Expression WalkChain(Expression start, PropertyMetadata meta, int from, int to)

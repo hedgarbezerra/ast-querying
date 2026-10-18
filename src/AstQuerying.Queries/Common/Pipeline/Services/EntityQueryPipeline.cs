@@ -2,8 +2,8 @@ using AstQuerying.Queries.Ast.Parsing;
 using AstQuerying.Queries.Common.Exceptions;
 using AstQuerying.Queries.Filters;
 using AstQuerying.Queries.Filters.Dtos;
+using AstQuerying.Queries.Metadata;
 using AstQuerying.Queries.Metadata.ValueObjects;
-using AstQuerying.Queries.Registries;
 using AstQuerying.Queries.Sorting;
 using AstQuerying.Queries.Sorting.Dtos;
 using AstQuerying.Queries.Validation;
@@ -16,10 +16,10 @@ namespace AstQuerying.Queries.Common.Pipeline.Services;
 /// </summary>
 public sealed class EntityQueryPipeline : IEntityQueryPipeline
 {
+    private readonly IEntityMetadataProvider _metadata;
     private readonly IFilteringService _filteringService;
     private readonly IQueryFilterParser _filterParser;
     private readonly IPaginationResolver _paginationResolver;
-    private readonly IQueryRegistry _registry;
     private readonly ISortingService _sortingService;
     private readonly IQueryValidator _validator;
 
@@ -27,14 +27,14 @@ public sealed class EntityQueryPipeline : IEntityQueryPipeline
     ///     Initializes a new instance of <see cref="EntityQueryPipeline" />.
     /// </summary>
     public EntityQueryPipeline(
-        IQueryRegistry registry,
+        IEntityMetadataProvider metadata,
         IQueryFilterParser filterParser,
         IQueryValidator validator,
         IFilteringService filteringService,
         ISortingService sortingService,
         IPaginationResolver paginationResolver)
     {
-        _registry = registry;
+        _metadata = metadata;
         _filterParser = filterParser;
         _validator = validator;
         _filteringService = filteringService;
@@ -49,8 +49,8 @@ public sealed class EntityQueryPipeline : IEntityQueryPipeline
         IReadOnlyList<SortFieldDto>? sort,
         PaginationDto? pagination) where TEntity : class
     {
-        var meta = _registry.GetEntity(typeof(TEntity)) ??
-                   throw new QueryValidationException($"No query metadata for {typeof(TEntity).Name}.");
+        var meta = _metadata.GetMetadata(typeof(TEntity)) ??
+                   throw new QueryEntityNotQueryableException(typeof(TEntity));
 
         var filterToApply = filter ?? meta.DefaultFilter;
         if (filterToApply is not null)
@@ -77,7 +77,7 @@ public sealed class EntityQueryPipeline : IEntityQueryPipeline
 
         if (meta.DefaultSort is { Count: > 0 })
             return meta.DefaultSort;
-        
+
         return [];
     }
 }

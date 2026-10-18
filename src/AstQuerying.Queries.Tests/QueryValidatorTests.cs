@@ -1,10 +1,10 @@
 using System.Text.Json;
+using AstQuerying.Queries.Ast.Parsing;
 using AstQuerying.Queries.Ast.ValueObjects;
 using AstQuerying.Queries.Common.Exceptions;
 using AstQuerying.Queries.Filters.Dtos;
-using AstQuerying.Queries.Ast.Parsing;
 using AstQuerying.Queries.Tests.Support;
-using AstQuerying.Queries.Validation.Contracts;
+using AstQuerying.Queries.Validation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AstQuerying.Queries.Tests;
@@ -39,6 +39,7 @@ public sealed class QueryValidatorTests
     public void ParsedValidFilterPassesValidation()
     {
         using var sp = QueryEngineTestFixture.CreateProvider();
+        var parser = sp.GetRequiredService<IQueryFilterParser>();
         var validator = sp.GetRequiredService<IQueryValidator>();
         var dto = new FilterClauseDto
         {
@@ -46,7 +47,7 @@ public sealed class QueryValidatorTests
             Operator = ">",
             Value = JsonSerializer.SerializeToElement(18)
         };
-        var node = QueryFilterParser.Parse(dto);
+        var node = parser.Parse(dto);
 
         validator.Validate(typeof(Person), node);
     }

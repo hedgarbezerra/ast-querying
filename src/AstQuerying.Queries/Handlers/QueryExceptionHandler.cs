@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AstQuerying.Queries.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
@@ -31,10 +30,7 @@ public sealed class QueryExceptionHandler(IProblemDetailsService problemDetailsS
             ["exceptionType"] = queryException.GetType().FullName ?? queryException.GetType().Name,
             ["reason"] = queryException.Reason
         };
-        if (queryException is QueryConfigurationException configurationException &&
-            configurationException.Diagnostics is not null)
-            detailsExtensions["configuration"] =
-                JsonSerializer.SerializeToElement(configurationException.Diagnostics);
+        queryException.WriteExtensionsInternal(detailsExtensions);
 
         var problemDetails = new ProblemDetails
         {
